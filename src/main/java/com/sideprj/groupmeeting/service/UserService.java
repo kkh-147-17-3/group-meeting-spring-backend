@@ -2,6 +2,7 @@ package com.sideprj.groupmeeting.service;
 
 import com.sideprj.groupmeeting.dto.CreateUserDto;
 import com.sideprj.groupmeeting.dto.GetUserDto;
+import com.sideprj.groupmeeting.dto.UpdateUserDto;
 import com.sideprj.groupmeeting.entity.User;
 import com.sideprj.groupmeeting.repository.UserRepository;
 import org.apache.coyote.BadRequestException;
@@ -57,15 +58,14 @@ public class UserService {
                 .orElseThrow(() -> new BadRequestException("User not found"));
 
         String profileImgName = user.getProfileImgName();
-        if (updateUserDto.getProfileImg() != null) {
-            profileImgName = awsS3Service.uploadImage(null, updateUserDto.getProfileImg());
+        if (updateUserDto.profileImg() != null) {
+            profileImgName = awsS3Service.uploadImage(null, "meeting", "profile" ,updateUserDto.profileImg());
         }
         user.setProfileImgName(profileImgName);
-        user.setNickname(updateUserDto.getNickname() != null ? updateUserDto.getNickname() : user.getNickname());
+        user.setNickname(updateUserDto.nickname() != null ? updateUserDto.nickname() : user.getNickname());
 
-        User savedUser = userRepository.save(user);
-        savedUser.computeProfileImageUrl(configService);
-        return GetUserDto.fromEntity(savedUser);
+        userRepository.save(user);
+        return GetUserDto.fromEntity(user);
     }
 
     @Transactional
@@ -73,7 +73,7 @@ public class UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + id));
 
-        if (user.getSocialProvider() == SocialProvider.APPLE) {
+        if (user.getSocialProvider() == User.SocialProvider.APPLE) {
             deleteAppleLoginUser(user.getId());
         }
     }
