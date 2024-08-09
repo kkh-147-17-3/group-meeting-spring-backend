@@ -8,6 +8,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.LogoutConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
@@ -23,30 +25,28 @@ public class WebSecurityConfig {
     private final JwtFilter jwtFilter;
     private final ObjectMapper mapper;
     private final String secretKey;
-    private final String redirectUri;
+
 
     @Autowired
     public WebSecurityConfig(
             JwtFilter jwtFilter,
             ObjectMapper mapper,
-            @Value("${jwt.secret}") String secretKey,
-            @Value("${jwt.redirect-host-on-success}") String redirectUri) {
+            @Value("${jwt.secret}") String secretKey) {
         this.jwtFilter = jwtFilter;
         this.mapper = mapper;
         this.secretKey = secretKey;
-        this.redirectUri = redirectUri;
     }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf.disable())
+                .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(authorize ->
                         authorize.anyRequest().permitAll()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .logout(logout -> logout.permitAll());
+                .logout(LogoutConfigurer::permitAll);
 
         return http.build();
     }

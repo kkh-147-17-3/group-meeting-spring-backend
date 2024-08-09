@@ -28,7 +28,7 @@ public class UserService {
 
     @Transactional
     public GetUserDto create(CreateUserDto registeredUserInfo) throws BadRequestException {
-        Optional<GetUserDto> registeredUser = findBySocialProviderAndSocialProviderId(
+        Optional<GetUserDto> registeredUser = getInfo(
                 registeredUserInfo.socialProvider(),
                 registeredUserInfo.socialProviderId()
         );
@@ -45,7 +45,7 @@ public class UserService {
         return GetUserDto.fromEntity(newUser);
     }
 
-    public Optional<GetUserDto> findBySocialProviderAndSocialProviderId(
+    public Optional<GetUserDto> getInfo(
             User.SocialProvider socialProvider,
             String socialProviderId) {
         return userRepository.findBySocialProviderAndSocialProviderId(socialProvider, socialProviderId)

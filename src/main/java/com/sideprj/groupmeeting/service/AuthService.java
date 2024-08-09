@@ -1,17 +1,26 @@
 package com.sideprj.groupmeeting.service;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sideprj.groupmeeting.dto.TokenSet;
 import com.sideprj.groupmeeting.entity.User;
+import com.sideprj.groupmeeting.exceptions.UnauthorizedException;
 import com.sideprj.groupmeeting.repository.UserRepository;
+import io.jsonwebtoken.JwsHeader;
 import lombok.Getter;
 import lombok.Setter;
+import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
+import org.bouncycastle.openssl.PEMParser;
+import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
+import org.springframework.http.*;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestTemplate;
 
 
 import io.jsonwebtoken.Jwts;
@@ -19,14 +28,15 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.impl.DefaultClaims;
 
 import java.io.IOException;
+import java.io.Reader;
+import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.security.cert.CertificateException;
-import java.security.cert.CertificateFactory;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.security.PrivateKey;
+import java.util.*;
+
+import okhttp3.*;
 
 @Service
 public class AuthService {
@@ -42,45 +52,67 @@ public class AuthService {
     @Value("${apple.key.id}")
     private String appleKeyId;
 
-
-
-    @Value("${apple.private_key_path}")
-    private String applePrivateKeyPath;
-
     private static final String APPLE_TOKEN_URL = "https://appleid.apple.com/auth/token";
 
-    private final String appleClientSecret;
+    private final PrivateKey appleClientSecret;
+
+    private final OkHttpClient client = new OkHttpClient();
+
+    private final ObjectMapper mapper = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     @Autowired
-    public AuthService(UserRepository userRepository) throws IOException {
+    public AuthService(
+            UserRepository userRepository,
+            @Value("${apple.private_key_path}") String applePrivateKeyPath
+    ) throws IOException {
         this.userRepository = userRepository;
-        this.appleClientSecret = readP8CertificateAsString(applePrivateKeyPath);
+        this.appleClientSecret = getPrivateKey(applePrivateKeyPath);
     }
 
-    private static String readP8CertificateAsString(String filePath) throws IOException {
+    private static PrivateKey getPrivateKey(String filePath) throws IOException {
         Path path = Paths.get(filePath);
-        return new String(Files.readAllBytes(path));
+        String privateKey = new String(Files.readAllBytes(path));
+        Reader pemReader = new StringReader(privateKey);
+        var pemParser = new PEMParser(pemReader);
+        JcaPEMKeyConverter converter = new JcaPEMKeyConverter();
+        PrivateKeyInfo object = (PrivateKeyInfo) pemParser.readObject();
+        return converter.getPrivateKey(object);
     }
 
 
     public TokenSet handleAppleLogin(String code) {
-        Map<String, String> data = new HashMap<>();
-        data.put("client_id", "com.SideProject.Group");
-        data.put("code", code);
-        data.put("grant_type", "authorization_code");
-        data.put("client_secret", createJWTAppleClientSecret());
+        RequestBody formBody = new FormBody.Builder()
+                .add("client_id", "com.SideProject.Group")
+                .add("code", code)
+                .add("grant_type", "authorization_code")
+                .add("client_secret", createJWTAppleClientSecret())
+                .build();
 
-        RestTemplate restTemplate = new RestTemplate();
-        try {
-            AppleGetTokenResponse response = restTemplate.postForObject(APPLE_TOKEN_URL, data, AppleGetTokenResponse.class);
-            if (response == null) {
-                throw new HttpClientErrorException(HttpStatus.UNAUTHORIZED, "Apple login failed");
+        var request = new Request.Builder().
+                url(APPLE_TOKEN_URL).
+                post(formBody).
+                header("Content-Type", MediaType.APPLICATION_FORM_URLENCODED_VALUE).build();
+
+        try (Response response = client.newCall(request).execute()) {
+            var res = response.body();
+            assert res != null;
+            var resBody = res.string();
+            System.out.println(resBody);
+
+            if (!response.isSuccessful()) {
+                throw new HttpClientErrorException(HttpStatus.UNAUTHORIZED, res.string());
+            }
+            var body = mapper.readValue(resBody, AppleGetTokenResponse.class);
+            System.out.println(body);
+            var decodedToken = parseJwtWithoutValidation(body.getIdToken());
+
+            if(decodedToken == null) {
+                throw new UnauthorizedException();
             }
 
-            Map<String, Object> decodedToken = Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(response.getIdToken()).getBody();
             String socialId = (String) decodedToken.get("sub");
             var socialProvider = User.SocialProvider.APPLE;
-            String refreshToken = response.getRefreshToken();
+            String refreshToken = body.getRefreshToken();
 
             User registeredUser = userRepository.findBySocialProviderAndSocialProviderId(socialProvider, socialId)
                     .orElseGet(() -> {
@@ -92,10 +124,36 @@ public class AuthService {
                     });
 
             return getTokenSet(registeredUser.getId());
-        } catch (HttpClientErrorException e) {
+        } catch (HttpClientErrorException | IOException e) {
             throw new HttpClientErrorException(HttpStatus.UNAUTHORIZED, e.getMessage());
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+            return null;
         }
     }
+
+    public static Map<String, Object> parseJwtWithoutValidation(String token) {
+        try {
+            String[] chunks = token.split("\\.");
+
+            if (chunks.length != 3) {
+                throw new IllegalArgumentException("Invalid JWT token format");
+            }
+
+            Base64.Decoder decoder = Base64.getUrlDecoder();
+            String payload = new String(decoder.decode(chunks[1]));
+
+            ObjectMapper mapper = new ObjectMapper();
+            TypeReference<Map<String, Object>> typeReference = new TypeReference<>() {};
+
+            return mapper.readValue(payload, typeReference);
+        } catch (Exception e) {
+            // Handle exception (e.g., log it or throw a custom exception)
+            System.err.println("Error parsing JWT: " + e.getMessage());
+            return null;
+        }
+    }
+
 
     public TokenSet getTokenSet(Long userId) {
         return new TokenSet(getUserAccessToken(userId), getUserRefreshToken(userId));
@@ -133,8 +191,9 @@ public class AuthService {
 
         return Jwts.builder()
                 .setClaims(payload)
-                .setHeaderParam("alg", "ES256")
-                .setHeaderParam("kid", appleKeyId)
+                .setHeaderParam(JwsHeader.ALGORITHM, "ES256")
+                .setHeaderParam(JwsHeader.KEY_ID, appleKeyId)
+                .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + 180L * 24 * 60 * 60 * 1000))
                 .signWith(SignatureAlgorithm.ES256, appleClientSecret)
                 .compact();
@@ -154,6 +213,10 @@ public class AuthService {
 @Getter
 @Setter
 class AppleGetTokenResponse {
-    private String idToken;
+    @JsonProperty("access_token")
+    private String accessToken;
+    @JsonProperty("refresh_token")
     private String refreshToken;
+    @JsonProperty("id_token")
+    private String idToken;
 }

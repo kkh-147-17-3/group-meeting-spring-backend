@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
+@Table(name = "`user`")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -30,7 +31,7 @@ public class User {
 
     @Column(nullable = false)
     @Builder.Default
-    private boolean isActive = true;
+    private boolean active = true;
 
     @Column
     private String appleRefreshToken;

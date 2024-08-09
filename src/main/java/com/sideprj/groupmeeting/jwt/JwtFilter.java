@@ -47,37 +47,23 @@ public class JwtFilter extends OncePerRequestFilter {
         String path = request.getServletPath();
 
         // Skip for login paths
-        if (path.equals("/") ||
-                path.startsWith("/token") ||
-                path.startsWith("/oauth") ||
-                path.startsWith("/login") ||
-                path.startsWith("/api/login") ||
-                path.startsWith("/api/oauth2") ||
-                path.startsWith("/api/check")) {
+        if (path.equals("/") || path.startsWith("/auth")){
             filterChain.doFilter(request, response);
             return;
         }
 
         String token;
+        String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
 
-        if (path.startsWith("/api/notification/connect")) {
-            token = request.getParameter("accessToken");
-            if (token == null) {
-                jwtExceptionHandler(response, 40001);
-                return;
-            }
-        } else {
-            String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
-
-            if (authorization == null || !authorization.startsWith("Bearer ")) {
-                jwtExceptionHandler(response, 40002);
-                return;
-            }
-
-            token = authorization.split(" ")[1];
+        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            jwtExceptionHandler(response, 40002);
+            return;
         }
 
-        if (path.startsWith("/api/auth/token")) {
+        token = authorization.split(" ")[1];
+
+
+        if (path.startsWith("/auth/token")) {
             if (jwtProvider.isExpired(token)) {
                 filterChain.doFilter(request, response);
                 return;

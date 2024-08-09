@@ -15,12 +15,12 @@ import java.util.Date;
 @Component
 public class JwtProvider {
 
-    private final String secretKey;
+    private final byte[] secretKey;
     private final long accessTokenValidTime = Duration.ofMinutes(30000000).toMillis(); // 30 minutes expiration
     private final long refreshTokenValidTime = Duration.ofMinutes(10).toMillis(); // 10 minutes expiration (was 2 weeks in Kotlin version)
 
     public JwtProvider(@Value("${jwt.secret}") String secretKey) {
-        this.secretKey = secretKey;
+        this.secretKey = secretKey.getBytes();
     }
 
     public String getTokenFromRequest(HttpServletRequest request) {
@@ -35,11 +35,11 @@ public class JwtProvider {
     }
 
     public Long getUserId(String token) {
-        return Jwts.parser()
+        return Long.parseLong(Jwts.parser()
                 .setSigningKey(secretKey)
                 .parseClaimsJws(token)
                 .getBody()
-                .get("userId", Long.class);
+                .getSubject());
     }
 
     public String getLoginType(String token) {
@@ -74,7 +74,7 @@ public class JwtProvider {
         return "access".equals(Jwts.parser()
                 .setSigningKey(secretKey)
                 .parseClaimsJws(token)
-                .getHeader()
+                .getBody()
                 .get("type"));
     }
 
