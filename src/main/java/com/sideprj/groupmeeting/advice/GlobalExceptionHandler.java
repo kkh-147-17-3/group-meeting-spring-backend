@@ -1,6 +1,7 @@
 package com.sideprj.groupmeeting.advice;
 
 import com.sideprj.groupmeeting.dto.CustomResponse;
+import com.sideprj.groupmeeting.exceptions.ResourceNotFoundException;
 import com.sideprj.groupmeeting.exceptions.UnauthorizedException;
 import org.apache.coyote.BadRequestException;
 import org.springframework.http.HttpStatus;
@@ -11,12 +12,17 @@ import org.springframework.web.method.annotation.HandlerMethodValidationExceptio
 
 import jakarta.persistence.EntityNotFoundException;
 
+import java.util.Arrays;
+
+import lombok.extern.slf4j.Slf4j;
+
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(EntityNotFoundException.class)
-    public ResponseEntity<CustomResponse> handleEntityNotFoundException(EntityNotFoundException e) {
-        CustomResponse body = new CustomResponse(
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<CustomResponse<Object>> handleEntityNotFoundException(EntityNotFoundException e) {
+        var body = new CustomResponse<>(
                 40400,
                 null,
                 e.getMessage() != null ? e.getMessage() : ""
@@ -25,8 +31,8 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(HandlerMethodValidationException.class)
-    public ResponseEntity<CustomResponse> handleValidationException(HandlerMethodValidationException e) {
-        var body = new CustomResponse(
+    public ResponseEntity<CustomResponse<Object>> handleValidationException(HandlerMethodValidationException e) {
+        var body = new CustomResponse<>(
                 HttpStatus.UNPROCESSABLE_ENTITY.value(),
                 null,
                 e.getMessage()
@@ -35,8 +41,8 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(BadRequestException.class)
-    public ResponseEntity<CustomResponse> handleBadRequestException(BadRequestException e) {
-        CustomResponse body = new CustomResponse(
+    public ResponseEntity<CustomResponse<Object>> handleBadRequestException(BadRequestException e) {
+        var body = new CustomResponse<>(
                 HttpStatus.BAD_REQUEST.value(),
                 null,
                 e.getMessage() != null ? e.getMessage() : ""
@@ -45,8 +51,8 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(UnauthorizedException.class)
-    public ResponseEntity<CustomResponse> handleUnauthorizedException(UnauthorizedException e) {
-        CustomResponse body = new CustomResponse(
+    public ResponseEntity<CustomResponse<Object>> handleUnauthorizedException(UnauthorizedException e) {
+        var body = new CustomResponse<>(
                 HttpStatus.UNAUTHORIZED.value(),
                 null,
                 e.getMessage() != null ? e.getMessage() : ""
@@ -55,11 +61,12 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<CustomResponse> otherException(Exception e) {
-        CustomResponse body = new CustomResponse(
+    public ResponseEntity<CustomResponse<Object>> otherException(Exception e) {
+        log.error(e.getMessage() + getStackTraceAsString(e));
+        var body = new CustomResponse<>(
                 HttpStatus.BAD_REQUEST.value(),
                 null,
-                getStackTraceAsString(e)
+                String.format("%s with stack traces: %s", e.getMessage(), getStackTraceAsString(e))
         );
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }

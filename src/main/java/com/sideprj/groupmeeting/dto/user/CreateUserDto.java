@@ -1,4 +1,4 @@
-package com.sideprj.groupmeeting.dto;
+package com.sideprj.groupmeeting.dto.user;
 
 import com.sideprj.groupmeeting.entity.User;
 import lombok.Getter;

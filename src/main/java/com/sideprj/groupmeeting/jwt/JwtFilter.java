@@ -1,7 +1,9 @@
 package com.sideprj.groupmeeting.jwt;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sideprj.groupmeeting.dto.GetUserDto;
+import com.sideprj.groupmeeting.dto.user.GetUserDto;
+import com.sideprj.groupmeeting.mapper.UserMapper;
+import com.sideprj.groupmeeting.mapper.UserMapperImpl;
 import com.sideprj.groupmeeting.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -47,7 +49,7 @@ public class JwtFilter extends OncePerRequestFilter {
         String path = request.getServletPath();
 
         // Skip for login paths
-        if (path.equals("/") || path.startsWith("/auth")){
+        if (path.equals("/") || path.startsWith("/auth") || path.startsWith("/dp")){
             filterChain.doFilter(request, response);
             return;
         }
@@ -90,7 +92,7 @@ public class JwtFilter extends OncePerRequestFilter {
             return;
         }
 
-        GetUserDto userInfo = GetUserDto.fromEntity(user.get());
+        GetUserDto userInfo = UserMapper.INSTANCE.toGetDto(user.get());
 
 //        List<SimpleGrantedAuthority> authorities;
 //        if (PhoneNoUtils.remainNumberOnly(userInfo.getMobile()).equals("01089628547")) {

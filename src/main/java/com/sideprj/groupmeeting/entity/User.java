@@ -36,10 +36,11 @@ public class User {
     @Column
     private String appleRefreshToken;
 
-    @Transient
-    private String profileImgUrl;
-
     public enum SocialProvider {
         KAKAO, APPLE
+    }
+
+    public String getProfileImgUrl(){
+        return String.format("https://%s.s3.%s.amazonaws.com/%s", "meeting-sideproject", "ap-northeast-2", this.getProfileImgName());
     }
 }

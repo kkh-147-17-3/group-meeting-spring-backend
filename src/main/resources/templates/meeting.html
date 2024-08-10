@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://deeplink.ugsm.co.kr">
+    <meta property="og:title" content="모임 초대를 확인해주세요!">
+    <meta property="og:image" th:content="${meeting.imageUrl}">
+    <meta property="og:description" th:content="|모임 제목 :${meeting.name}|">
+    <meta property="og:site_name" content="유지에스엠">
+    <meta property="og:locale" content="en_US">
+    <!-- 다음의 태그는 필수는 아니지만, 포함하는 것을 추천함 -->
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+
+    <title>테스트 타이틀</title>
+</head>
+
+<body>
+<script>
+    const iosDeepLink = `com.SideProject.Group://${location.pathname}`
+    const iosAppDownloadLink = 'https://apps.apple.com/kr/app/%EC%A0%A4%EB%A6%AC%EC%A7%80%ED%82%A4%EB%AF%B8/id6502467183?l=en-GB'
+
+    function getOS() {
+        const userAgent = navigator.userAgent.toLowerCase();
+        if (/android/i.test(userAgent)) {
+            return 'android';
+        } else if (/iphone|ipad|ipod/i.test(userAgent)) {
+            return 'ios';
+        } else {
+            return /windows|mac|linux/i.test(userAgent) ? 'pc' : 'other';
+        }
+    }
+
+    function launchApp(os) {
+        const baseUrls = {
+            ios: iosDeepLink,
+        };
+        const downloadUrls = {
+            ios: iosAppDownloadLink,
+        };
+
+        function handleVisibilityChange() {
+            if (document.hidden || document.webkitHidden) {
+                clearTimeout(timeoutId);
+            }
+        }
+
+        document.addEventListener('visibilitychange', handleVisibilityChange, false);
+
+        window.location.href = baseUrls[os];
+
+        const timeoutId = setTimeout(() => {
+            window.location.href = downloadUrls[os];
+            document.removeEventListener('visibilitychange', handleVisibilityChange, false);
+        }, 2000);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const os = getOS();
+        if (os === 'ios') {
+            launchApp(os);
+        }
+    });
+
+</script>
+</body>
+
+</html>

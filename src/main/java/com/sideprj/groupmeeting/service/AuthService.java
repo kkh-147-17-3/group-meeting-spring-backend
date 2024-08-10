@@ -58,15 +58,17 @@ public class AuthService {
 
     private final OkHttpClient client = new OkHttpClient();
 
-    private final ObjectMapper mapper = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    private final ObjectMapper mapper;
 
     @Autowired
     public AuthService(
             UserRepository userRepository,
+            ObjectMapper mapper,
             @Value("${apple.private_key_path}") String applePrivateKeyPath
     ) throws IOException {
         this.userRepository = userRepository;
         this.appleClientSecret = getPrivateKey(applePrivateKeyPath);
+        this.mapper = mapper;
     }
 
     private static PrivateKey getPrivateKey(String filePath) throws IOException {
@@ -143,7 +145,7 @@ public class AuthService {
             Base64.Decoder decoder = Base64.getUrlDecoder();
             String payload = new String(decoder.decode(chunks[1]));
 
-            ObjectMapper mapper = new ObjectMapper();
+            var mapper = new ObjectMapper();
             TypeReference<Map<String, Object>> typeReference = new TypeReference<>() {};
 
             return mapper.readValue(payload, typeReference);
