@@ -1,6 +1,7 @@
 package com.sideprj.groupmeeting.controller;
 
 import com.sideprj.groupmeeting.dto.TokenSet;
+import com.sideprj.groupmeeting.exceptions.UnauthorizedException;
 import com.sideprj.groupmeeting.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -24,7 +25,7 @@ public class AuthController {
     }
 
     @GetMapping("/apple/login")
-    public ResponseEntity<TokenSet> handleAppleLogin(@RequestParam String code) throws MalformedURLException, URISyntaxException {
+    public ResponseEntity<TokenSet> handleAppleLogin(@RequestParam String code) throws UnauthorizedException {
         var result = authService.handleAppleLogin(code);
         System.out.println(result);
         return ResponseEntity.ok(result);
