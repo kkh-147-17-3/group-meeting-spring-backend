@@ -103,7 +103,7 @@ public class AuthService {
             System.out.println(resBody);
 
             if (!response.isSuccessful()) {
-                throw new HttpClientErrorException(HttpStatus.UNAUTHORIZED, res.string());
+                throw new HttpClientErrorException(HttpStatus.UNAUTHORIZED, resBody);
             }
             var body = mapper.readValue(resBody, AppleGetTokenResponse.class);
             System.out.println(body);
