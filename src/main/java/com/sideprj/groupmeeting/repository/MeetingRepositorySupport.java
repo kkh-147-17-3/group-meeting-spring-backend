@@ -55,7 +55,17 @@ public class MeetingRepositorySupport {
         return queryFactory.selectFrom(meetingPlan)
                            .innerJoin(meetingPlan.participants, meetingPlanParticipant)
                            .fetchJoin()
-                           .where(meetingPlanParticipant.user.id.eq(userId))
+                           .where(meetingPlan.id
+                                          .in(
+                                                  queryFactory.select(meetingPlan.id)
+                                                              .from(meetingPlan)
+                                                              .innerJoin(
+                                                                      meetingPlan.participants,
+                                                                      meetingPlanParticipant
+                                                              )
+                                                              .where(meetingPlanParticipant.user.id.eq(userId))
+                                                              .fetch()
+                                          ))
                            .orderBy(meetingPlan.startAt.asc())
                            .fetch();
     }

@@ -1,5 +1,6 @@
 package com.sideprj.groupmeeting.controller;
 
+import com.sideprj.groupmeeting.annotation.ApiLogging;
 import com.sideprj.groupmeeting.dto.meeting.*;
 import com.sideprj.groupmeeting.dto.user.GetUserDto;
 import com.sideprj.groupmeeting.exceptions.BadRequestException;
@@ -59,6 +60,7 @@ public class MeetingController {
     }
 
     @GetMapping("/plan")
+    @ApiLogging
     public ResponseEntity<List<GetMeetingPlanDto>> getMyPlan(
             @AuthenticationPrincipal GetUserDto userInfo
     ) {
@@ -94,6 +96,7 @@ public class MeetingController {
         return ResponseEntity.ok(meetings);
     }
 
+    @ApiLogging
     @RequestMapping(value = {"/{id}", "/"}, method = RequestMethod.GET)
     public ResponseEntity<GetMeetingDto> getMeetingInfo(
             @PathVariable(value = "id", required = false) Long id,
@@ -103,6 +106,7 @@ public class MeetingController {
         return ResponseEntity.ok(meeting);
     }
 
+    @ApiLogging
     @PatchMapping("/plan/{id}")
     public ResponseEntity<GetMeetingPlanDto> updatePlan(
             @AuthenticationPrincipal GetUserDto userInfo,
