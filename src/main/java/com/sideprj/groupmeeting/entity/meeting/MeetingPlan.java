@@ -27,7 +27,7 @@ public class MeetingPlan extends BaseTimeEntity {
     @ManyToOne
     private Meeting meeting;
 
-    @OneToMany(mappedBy = "meetingPlan")
+    @OneToMany(mappedBy = "meetingPlan", cascade = CascadeType.ALL)
     private List<MeetingPlanParticipant> participants;
 
     @Column(nullable = false)

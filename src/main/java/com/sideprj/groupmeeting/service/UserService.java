@@ -2,10 +2,13 @@ package com.sideprj.groupmeeting.service;
 
 import com.sideprj.groupmeeting.dto.user.CreateUserDto;
 import com.sideprj.groupmeeting.dto.user.GetUserDto;
+import com.sideprj.groupmeeting.dto.user.UpdateUserDeviceDto;
 import com.sideprj.groupmeeting.dto.user.UpdateUserDto;
 import com.sideprj.groupmeeting.entity.User;
+import com.sideprj.groupmeeting.exceptions.ResourceNotFoundException;
 import com.sideprj.groupmeeting.mapper.UserMapper;
 import com.sideprj.groupmeeting.repository.UserRepository;
+import jakarta.validation.Valid;
 import org.apache.coyote.BadRequestException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -15,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import jakarta.persistence.EntityNotFoundException;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Service
@@ -87,5 +91,20 @@ public class UserService {
 
         user.setActive(false);
         userRepository.save(user);
+    }
+
+    public boolean checkNicknameDuplicated(String nickname) {
+        var user = userRepository.findByNickname(nickname);
+        return user.isPresent();
+    }
+
+    @Transactional
+    public void updateDeviceInfo(Long userId, @Valid UpdateUserDeviceDto dto) throws ResourceNotFoundException {
+        var user = userRepository.findById(userId).orElseThrow(ResourceNotFoundException::new);
+        user.setDeviceToken(dto.deviceToken());
+        user.setDeviceType(dto.deviceType());
+        user.setLastLaunchAt(LocalDateTime.now());
+        userRepository.save(user);
+        UserMapper.INSTANCE.toGetDto(user);
     }
 }

@@ -2,7 +2,6 @@ package com.sideprj.groupmeeting.service;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sideprj.groupmeeting.dto.TokenSet;
 import com.sideprj.groupmeeting.entity.User;
@@ -54,9 +53,9 @@ public class AuthService {
 
     private static final String APPLE_TOKEN_URL = "https://appleid.apple.com/auth/token";
 
-    private final PrivateKey appleClientSecret;
+    private final PrivateKey applePrivateKey;
 
-    private final OkHttpClient client = new OkHttpClient();
+    private final OkHttpClient client;
 
     private final ObjectMapper mapper;
 
@@ -64,14 +63,16 @@ public class AuthService {
     public AuthService(
             UserRepository userRepository,
             ObjectMapper mapper,
+            OkHttpClient client,
             @Value("${apple.private_key_path}") String applePrivateKeyPath
     ) throws IOException {
         this.userRepository = userRepository;
-        this.appleClientSecret = getPrivateKey(applePrivateKeyPath);
+        this.applePrivateKey = getPrivateKey(applePrivateKeyPath);
         this.mapper = mapper;
+        this.client = client;
     }
 
-    private static PrivateKey getPrivateKey(String filePath) throws IOException {
+    public static PrivateKey getPrivateKey(String filePath) throws IOException {
         Path path = Paths.get(filePath);
         String privateKey = new String(Files.readAllBytes(path));
         Reader pemReader = new StringReader(privateKey);
@@ -82,7 +83,7 @@ public class AuthService {
     }
 
 
-    public TokenSet handleAppleLogin(String code) {
+    public TokenSet handleAppleLogin(String code) throws UnauthorizedException {
         RequestBody formBody = new FormBody.Builder()
                 .add("client_id", "com.SideProject.Group")
                 .add("code", code)
@@ -130,7 +131,7 @@ public class AuthService {
             throw new HttpClientErrorException(HttpStatus.UNAUTHORIZED, e.getMessage());
         } catch (Exception e) {
             System.out.println(e.getMessage());
-            return null;
+            throw e;
         }
     }
 
@@ -197,7 +198,7 @@ public class AuthService {
                 .setHeaderParam(JwsHeader.KEY_ID, appleKeyId)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + 180L * 24 * 60 * 60 * 1000))
-                .signWith(SignatureAlgorithm.ES256, appleClientSecret)
+                .signWith(SignatureAlgorithm.ES256, applePrivateKey)
                 .compact();
     }
 

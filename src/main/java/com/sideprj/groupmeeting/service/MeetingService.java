@@ -1,10 +1,8 @@
 package com.sideprj.groupmeeting.service;
 
 import com.sideprj.groupmeeting.dto.meeting.*;
-import com.sideprj.groupmeeting.entity.meeting.Meeting;
-import com.sideprj.groupmeeting.entity.meeting.MeetingInvite;
-import com.sideprj.groupmeeting.entity.meeting.MeetingMember;
-import com.sideprj.groupmeeting.entity.meeting.MeetingPlan;
+import com.sideprj.groupmeeting.entity.Notification;
+import com.sideprj.groupmeeting.entity.meeting.*;
 import com.sideprj.groupmeeting.exceptions.BadRequestException;
 import com.sideprj.groupmeeting.exceptions.ResourceNotFoundException;
 import com.sideprj.groupmeeting.exceptions.UnauthorizedException;
@@ -32,9 +30,13 @@ public class MeetingService {
     private final MeetingMemberRepository meetingMemberRepository;
     private final AwsS3Service s3Service;
     private final MeetingInviteRepository meetingInviteRepository;
+
+    private final MeetingPlanParticipantRepository meetingPlanParticipantRepository;
+    private final MeetingRepositorySupport meetingRepositorySupport;
+
+    private final NotificationRepository notificationRepository;
     @PersistenceContext
     private EntityManager entityManager;
-    private final MeetingRepositorySupport meetingRepositorySupport;
 
     public MeetingService(
             MeetingRepository meetingRepository,
@@ -43,7 +45,9 @@ public class MeetingService {
             MeetingPlanRepository meetingPlanRepository,
             MeetingMemberRepository meetingMemberRepository,
             MeetingInviteRepository meetingInviteRepository,
-            MeetingRepositorySupport meetingRepositorySupport
+            MeetingRepositorySupport meetingRepositorySupport,
+            MeetingPlanParticipantRepository meetingPlanParticipantRepository,
+            NotificationRepository notificationRepository
     ) {
         this.meetingRepository = meetingRepository;
         this.userRepository = userRepository;
@@ -52,6 +56,8 @@ public class MeetingService {
         this.meetingMemberRepository = meetingMemberRepository;
         this.meetingInviteRepository = meetingInviteRepository;
         this.meetingRepositorySupport = meetingRepositorySupport;
+        this.meetingPlanParticipantRepository = meetingPlanParticipantRepository;
+        this.notificationRepository = notificationRepository;
     }
 
     @Transactional
@@ -108,10 +114,10 @@ public class MeetingService {
                .findAny().orElseThrow(UnauthorizedException::new);
 
         LocalDateTime endAt = dto.getEndAt() == null ? dto.getStartAt()
-                                       .withHour(11)
-                                       .withMinute(59)
-                                       .withSecond(59)
-                                       .withNano(0) : dto.getEndAt();
+                                                          .withHour(11)
+                                                          .withMinute(59)
+                                                          .withSecond(59)
+                                                          .withNano(0) : dto.getEndAt();
 
         var meetingPlan = MeetingPlan.builder()
                                      .meeting(meeting)
@@ -126,6 +132,93 @@ public class MeetingService {
                                      .build();
 
         meetingPlanRepository.save(meetingPlan);
+
+        MeetingPlanParticipant participant = MeetingPlanParticipant.builder()
+                                                                   .meetingPlan(meetingPlan)
+                                                                   .user(user)
+                                                                   .build();
+
+        meetingPlanParticipantRepository.save(participant);
+        var title = "%s 모임 약속 추가 알림".formatted(meeting.getName());
+        var message = "%s 님이 새로운 약속을 추가했어요. 약속 내용을 확인해주세요!".formatted(user.getNickname());
+
+        var notifications = meeting.getMembers().stream()
+                                   .filter(member -> !member.getUser().getId().equals(creatorId))
+                                   .map(member -> Notification.builder()
+                                                              .user(member.getUser())
+                                                              .deviceType(member.getUser().getDeviceType())
+                                                              .deviceToken(member.getUser().getDeviceToken())
+                                                              .message(message)
+                                                              .title(title)
+                                                              .actionData(null)
+                                                              .scheduledAt(LocalDateTime.now())
+                                                              .build())
+                                   .toList();
+
+        notificationRepository.saveAll(notifications);
+
+        return MeetingMapper.INSTANCE.toGetPlanDto(meetingPlan);
+    }
+
+    @Transactional
+    public GetMeetingPlanDto updatePlan(
+            Long userId,
+            UpdateMeetingPlanDto dto
+    ) throws ResourceNotFoundException, UnauthorizedException {
+        var meetingPlan = meetingPlanRepository.findById(dto.getMeetingPlanId()).orElseThrow(ResourceNotFoundException::new);
+
+        if(!meetingPlan.getCreator().getId().equals(userId)){
+            throw new UnauthorizedException();
+        }
+
+        if(dto.getLatitude() != null){
+            meetingPlan.setLatitude(dto.getLatitude());
+        }
+        if(dto.getLongitude() != null){
+            meetingPlan.setLongitude(dto.getLongitude());
+        }
+        if(dto.getStartAt() != null) {
+            meetingPlan.setStartAt(dto.getStartAt());
+            if(dto.getEndAt() != null) {
+                meetingPlan.setEndAt(dto.getEndAt());
+            } else {
+                LocalDateTime endAt = dto.getStartAt()
+                                                         .withHour(11)
+                                                         .withMinute(59)
+                                                         .withSecond(59)
+                                                         .withNano(0);
+                meetingPlan.setEndAt(endAt);
+            }
+        }
+        if(dto.getAddress() != null) {
+            meetingPlan.setAddress(dto.getAddress());
+        }
+        if(dto.getDetailAddress() != null) {
+            meetingPlan.setDetailAddress(dto.getDetailAddress());
+        }
+        if(!dto.getName().isBlank()) {
+            meetingPlan.setName(dto.getName());
+        }
+
+        meetingPlanRepository.save(meetingPlan);
+
+        var title = "%s 모임 약속 수정 알림".formatted(meetingPlan.getMeeting().getName());
+        var message = "%s 님이 약속 내용을 수정했어요. 약속 내용을 확인해주세요!".formatted(meetingPlan.getCreator().getNickname());
+
+        var notifications = meetingPlan.getParticipants().stream()
+                                   .filter(member -> !member.getUser().getId().equals(userId))
+                                   .map(member -> Notification.builder()
+                                                              .user(member.getUser())
+                                                              .deviceType(member.getUser().getDeviceType())
+                                                              .deviceToken(member.getUser().getDeviceToken())
+                                                              .message(message)
+                                                              .title(title)
+                                                              .actionData(null)
+                                                              .scheduledAt(LocalDateTime.now())
+                                                              .build())
+                                   .toList();
+
+        notificationRepository.saveAll(notifications);
 
         return MeetingMapper.INSTANCE.toGetPlanDto(meetingPlan);
     }
@@ -149,7 +242,7 @@ public class MeetingService {
 
         meetingInviteRepository.save(meetingInvite);
 
-        return MeetingMapper.INSTANCE.toGetMeetingInviteDto(meetingInvite);
+        return MeetingMapper.INSTANCE.toGetInviteDto(meetingInvite);
     }
 
     public List<GetMeetingMemberDto> createMember(
@@ -180,7 +273,7 @@ public class MeetingService {
                                   .toList();
         meetingMemberRepository.saveAll(meetingMembers);
 
-        return MeetingMapper.INSTANCE.toGetMeetingMembersDto(meetingMembers);
+        return MeetingMapper.INSTANCE.toGetMembersDto(meetingMembers);
     }
 
     @Transactional
@@ -190,9 +283,105 @@ public class MeetingService {
     }
 
     @Transactional
-    public GetMeetingDto getByInviteId(String id) throws ResourceNotFoundException {
+    public GetMeetingDto findByIdAndInviteId(Long meetingId, UUID id) throws ResourceNotFoundException {
+        var meeting = meetingRepositorySupport.findByIdOrInviteId(meetingId, id);
+        if (meeting == null) {
+            throw new ResourceNotFoundException();
+        }
+        return MeetingMapper.INSTANCE.toGetDto(meeting);
+    }
+
+    @Transactional
+    public GetMeetingDto findByInviteId(UUID id) throws ResourceNotFoundException {
         var current = LocalDateTime.now();
-        var invite = meetingInviteRepository.findByIdAndExpiredAtAfter(UUID.fromString(id), current).orElseThrow(ResourceNotFoundException::new);
+
+        var invite = meetingInviteRepository.findByIdAndExpiredAtAfter(id, current)
+                                            .orElseThrow(ResourceNotFoundException::new);
         return MeetingMapper.INSTANCE.toGetDto(invite.getMeeting());
+    }
+
+    @Transactional
+    public List<GetMeetingPlanDto> getMeetingPlansByParticipantUserId(Long userId) {
+        var meetingPlans = meetingRepositorySupport.findPlansByParticipantUserId(userId);
+        return MeetingMapper.INSTANCE.toGetPlanDtos(meetingPlans);
+    }
+
+
+    @Transactional
+    public GetMeetingPlanDto createPlanParticipant(Long userId, Long planId) throws ResourceNotFoundException, BadRequestException {
+        var meetingPlan = meetingPlanRepository.findById(planId).orElseThrow(ResourceNotFoundException::new);
+
+        var isNotJoinedYet = meetingPlan.getParticipants()
+                                        .stream()
+                                        .filter(participant -> participant.getUser().getId().equals(userId))
+                                        .findAny().isEmpty();
+
+        if (!isNotJoinedYet) {
+            throw new BadRequestException("이미 참여한 사용자입니다.");
+        }
+        var user = userRepository.findById(userId).orElseThrow(() -> new BadRequestException("존재하지 않는 사용자입니다."));
+
+        var meetingPlanParticipant = MeetingPlanParticipant.builder()
+                                                           .meetingPlan(meetingPlan)
+                                                           .user(user)
+                                                           .build();
+
+
+        meetingPlanParticipantRepository.save(meetingPlanParticipant);
+        var title = "%s 모임 약속 참여 알림".formatted(meetingPlan.getMeeting().getName());
+        var message = "%s 님이 약속에 참여하기로 했어요. 변경된 참여 인원을 확인해주세요!".formatted(user.getNickname());
+
+        var notifications = meetingPlan.getParticipants().stream()
+                                       .filter(participant -> !participant.getUser().getId().equals(userId))
+                                       .map(member -> Notification.builder()
+                                                                  .user(member.getUser())
+                                                                  .deviceType(member.getUser().getDeviceType())
+                                                                  .deviceToken(member.getUser().getDeviceToken())
+                                                                  .message(message)
+                                                                  .title(title)
+                                                                  .actionData(null)
+                                                                  .scheduledAt(LocalDateTime.now())
+                                                                  .build())
+                                       .toList();
+
+        notificationRepository.saveAll(notifications);
+        entityManager.refresh(meetingPlan);
+        return MeetingMapper.INSTANCE.toGetPlanDto(meetingPlan);
+    }
+
+    @Transactional
+    public GetMeetingPlanDto deletePlanParticipant(Long userId, Long planId) throws ResourceNotFoundException, BadRequestException {
+        var meetingPlan = meetingPlanRepository.findById(planId).orElseThrow(ResourceNotFoundException::new);
+
+        var joinedParticipant = meetingPlan.getParticipants()
+                                           .stream()
+                                           .filter(participant -> participant.getUser().getId().equals(userId))
+                                           .findAny()
+                                           .orElseThrow(() -> new BadRequestException("아직 참여하지 않은 사용자입니다."));
+
+        var user = userRepository.findById(userId).orElseThrow(() -> new BadRequestException("존재하지 않는 사용자입니다."));
+
+        meetingPlan.getParticipants().remove(joinedParticipant);
+        meetingPlanRepository.save(meetingPlan);
+        meetingPlanParticipantRepository.delete(joinedParticipant);
+
+        var title = "%s 모임 약속 참여 취소 알림".formatted(meetingPlan.getMeeting().getName());
+        var message = "%s 님이 참여하기로 한 약속을 취소했어요. 변경된 참여 인원을 확인해주세요".formatted(user.getNickname());
+
+        var notifications = meetingPlan.getParticipants().stream()
+                                       .filter(participant -> !participant.getUser().getId().equals(userId))
+                                       .map(member -> Notification.builder()
+                                                                  .user(member.getUser())
+                                                                  .deviceType(member.getUser().getDeviceType())
+                                                                  .deviceToken(member.getUser().getDeviceToken())
+                                                                  .message(message)
+                                                                  .title(title)
+                                                                  .actionData(null)
+                                                                  .scheduledAt(LocalDateTime.now())
+                                                                  .build())
+                                       .toList();
+
+        notificationRepository.saveAll(notifications);
+        return MeetingMapper.INSTANCE.toGetPlanDto(meetingPlan);
     }
 }

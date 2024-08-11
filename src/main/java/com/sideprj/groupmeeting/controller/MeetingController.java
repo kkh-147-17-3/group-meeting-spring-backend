@@ -14,6 +14,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("meeting")
@@ -57,6 +58,14 @@ public class MeetingController {
         return ResponseEntity.ok(invite);
     }
 
+    @GetMapping("/plan")
+    public ResponseEntity<List<GetMeetingPlanDto>> getMyPlan(
+            @AuthenticationPrincipal GetUserDto userInfo
+    ) {
+        var plans = meetingService.getMeetingPlansByParticipantUserId(userInfo.id());
+        return ResponseEntity.ok(plans);
+    }
+
     @PostMapping("/{id}/member")
     public ResponseEntity<List<GetMeetingMemberDto>> createMember(
             @AuthenticationPrincipal GetUserDto userInfo,
@@ -80,8 +89,46 @@ public class MeetingController {
     }
 
     @GetMapping("active")
-    public ResponseEntity<List<GetMeetingDto>> getMyMeeting(@AuthenticationPrincipal GetUserDto userInfo){
+    public ResponseEntity<List<GetMeetingDto>> getMyMeeting(@AuthenticationPrincipal GetUserDto userInfo) {
         var meetings = meetingService.getActiveMeetingsByUserId(userInfo.id());
         return ResponseEntity.ok(meetings);
+    }
+
+    @RequestMapping(value = {"/{id}", "/"}, method = RequestMethod.GET)
+    public ResponseEntity<GetMeetingDto> getMeetingInfo(
+            @PathVariable(value = "id", required = false) Long id,
+            @RequestParam UUID inviteId
+    ) throws ResourceNotFoundException {
+        var meeting = meetingService.findByIdAndInviteId(id, inviteId);
+        return ResponseEntity.ok(meeting);
+    }
+
+    @PatchMapping("/plan/{id}")
+    public ResponseEntity<GetMeetingPlanDto> updatePlan(
+            @AuthenticationPrincipal GetUserDto userInfo,
+            @PathVariable Long id,
+            @RequestBody UpdateMeetingPlanDto dto
+    ) throws ResourceNotFoundException, UnauthorizedException {
+        dto.setMeetingPlanId(id);
+        var result = meetingService.updatePlan(userInfo.id(), dto);
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/plan/{id}/join")
+    public ResponseEntity<GetMeetingPlanDto> joinMeetingPlan(
+            @AuthenticationPrincipal GetUserDto userInfo,
+            @PathVariable Long id
+    ) throws BadRequestException, ResourceNotFoundException {
+        var result = meetingService.createPlanParticipant(userInfo.id(), id);
+        return ResponseEntity.ok(result);
+    }
+
+    @DeleteMapping("/plan/{id}/join")
+    public ResponseEntity<GetMeetingPlanDto> leaveMeetingPlan(
+            @AuthenticationPrincipal GetUserDto userInfo,
+            @PathVariable Long id
+    ) throws BadRequestException, ResourceNotFoundException {
+        var result = meetingService.deletePlanParticipant(userInfo.id(), id);
+        return ResponseEntity.ok(result);
     }
 }

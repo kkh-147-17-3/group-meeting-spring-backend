@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 
+import java.util.UUID;
+
 @Controller
 @RequestMapping("dp")
 public class DeeplinkController {
@@ -17,8 +19,8 @@ public class DeeplinkController {
     public DeeplinkController(MeetingService meetingService) {this.meetingService = meetingService;}
 
     @GetMapping("m/{id}")
-    public String getMeetingView(@PathVariable String id, Model model) throws ResourceNotFoundException {
-        var meeting = meetingService.getByInviteId(id);
+    public String getMeetingView(@PathVariable UUID id, Model model) throws ResourceNotFoundException {
+        var meeting = meetingService.findByInviteId(id);
         model.addAttribute("meeting", meeting);
         return "meeting";
     }

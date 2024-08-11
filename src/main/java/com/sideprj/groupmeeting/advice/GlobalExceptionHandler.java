@@ -1,29 +1,24 @@
 package com.sideprj.groupmeeting.advice;
 
 import com.sideprj.groupmeeting.dto.CustomResponse;
+import com.sideprj.groupmeeting.exceptions.BadRequestException;
 import com.sideprj.groupmeeting.exceptions.ResourceNotFoundException;
 import com.sideprj.groupmeeting.exceptions.UnauthorizedException;
-import org.apache.coyote.BadRequestException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 
-import jakarta.persistence.EntityNotFoundException;
-
-import java.util.Arrays;
-
-import lombok.extern.slf4j.Slf4j;
-
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<CustomResponse<Object>> handleEntityNotFoundException(EntityNotFoundException e) {
+    public ResponseEntity<CustomResponse<Object>> handleEntityNotFoundException(ResourceNotFoundException e) {
         var body = new CustomResponse<>(
-                40400,
+                HttpStatus.NOT_FOUND.value(),
                 null,
                 e.getMessage() != null ? e.getMessage() : ""
         );
@@ -37,7 +32,7 @@ public class GlobalExceptionHandler {
                 null,
                 e.getMessage()
         );
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(body);
     }
 
     @ExceptionHandler(BadRequestException.class)
@@ -62,13 +57,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<CustomResponse<Object>> otherException(Exception e) {
-        log.error(e.getMessage() + getStackTraceAsString(e));
+        log.error(e.getMessage() + "with stack trace\n" + getStackTraceAsString(e));
         var body = new CustomResponse<>(
-                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 null,
                 String.format("%s with stack traces: %s", e.getMessage(), getStackTraceAsString(e))
         );
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
     }
 
     private String getStackTraceAsString(Exception e) {

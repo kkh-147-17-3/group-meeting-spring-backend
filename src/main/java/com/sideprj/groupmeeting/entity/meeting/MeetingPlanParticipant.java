@@ -3,13 +3,11 @@ package com.sideprj.groupmeeting.entity.meeting;
 import com.sideprj.groupmeeting.entity.BaseTimeEntity;
 import com.sideprj.groupmeeting.entity.User;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 @Entity
 @AllArgsConstructor
+@Builder
 @NoArgsConstructor
 @Getter
 @Setter
