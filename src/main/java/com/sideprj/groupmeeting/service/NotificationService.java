@@ -1,5 +1,6 @@
 package com.sideprj.groupmeeting.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sideprj.groupmeeting.dto.NotificationRequest;
@@ -9,6 +10,7 @@ import com.sideprj.groupmeeting.exceptions.UnauthorizedException;
 import com.sideprj.groupmeeting.repository.NotificationRepository;
 import com.sideprj.groupmeeting.util.AppleJwtTokenUtil;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +26,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @Service
+@Slf4j
 public class NotificationService {
 
     private static final String APNS_URL = "https://api.push.apple.com/3/device/";
@@ -84,14 +87,35 @@ public class NotificationService {
         notificationRepository.save(notification);
     }
 
-    @SneakyThrows
     public CompletableFuture<NotificationRequestResult> sendPushNotification(
             NotificationRequest request,
             String jwtToken
     ) {
+        CompletableFuture<NotificationRequestResult> future = new CompletableFuture<>();
+
         String url = APNS_URL + request.deviceToken();
-        TypeReference<Map<String, Object>> typeReference = new TypeReference<>() {};
-        var data = request.data() == null ? null : mapper.readValue(request.data(), typeReference);
+        TypeReference<Map<String, Object>> typeReference = new TypeReference<>() {
+        };
+        Map<String, Object> data = null;
+        try {
+            if (request.data() != null) {
+                data = mapper.readValue(request.data(), typeReference);
+            }
+        } catch (JsonProcessingException e) {
+            future.complete(new NotificationRequestResult(
+                    request.id(),
+                    false,
+                    request.title(),
+                    request.deviceToken(),
+                    request.deviceType(),
+                    request.message(),
+                    request.data(),
+                    e.getMessage()
+            ));
+            return future;
+        }
+
+
         var requestData = buildPayload(request.title(), request.message(), request.badgeCount(), "default", data);
         RequestBody body = RequestBody.create(requestData, JSON);
 
@@ -102,12 +126,10 @@ public class NotificationService {
                 .post(body)
                 .build();
 
-        CompletableFuture<NotificationRequestResult> future = new CompletableFuture<>();
-
         client.newCall(httpRequest).enqueue(new Callback() {
             @Override
-            public void onFailure(Call call, IOException e) {
-                e.printStackTrace();
+            public void onFailure(@NotNull Call call, @NotNull IOException e) {
+                log.error(e.getMessage());
                 future.completeExceptionally(e);
             }
 
@@ -147,7 +169,7 @@ public class NotificationService {
 
         // Send notifications asynchronously to all device tokens
         return requests.stream()
-                       .map((request) -> sendPushNotification(request, jwtToken))
-                       .toList();
+                .map((request) -> sendPushNotification(request, jwtToken))
+                .toList();
     }
 }

@@ -37,6 +37,8 @@ import java.util.*;
 
 import okhttp3.*;
 
+import static com.sideprj.groupmeeting.jwt.JwtProvider.parseJwtWithoutValidation;
+
 @Service
 public class AuthService {
 
@@ -107,13 +109,13 @@ public class AuthService {
             }
             var body = mapper.readValue(resBody, AppleGetTokenResponse.class);
             System.out.println(body);
-            var decodedToken = parseJwtWithoutValidation(body.getIdToken());
+            var decodedTokenClaims = parseJwtWithoutValidation(body.getIdToken());
 
-            if(decodedToken == null) {
+            if(decodedTokenClaims == null) {
                 throw new UnauthorizedException();
             }
 
-            String socialId = (String) decodedToken.get("sub");
+            String socialId = (String) decodedTokenClaims.get("sub");
             var socialProvider = User.SocialProvider.APPLE;
             String refreshToken = body.getRefreshToken();
 
@@ -135,27 +137,7 @@ public class AuthService {
         }
     }
 
-    public static Map<String, Object> parseJwtWithoutValidation(String token) {
-        try {
-            String[] chunks = token.split("\\.");
 
-            if (chunks.length != 3) {
-                throw new IllegalArgumentException("Invalid JWT token format");
-            }
-
-            Base64.Decoder decoder = Base64.getUrlDecoder();
-            String payload = new String(decoder.decode(chunks[1]));
-
-            var mapper = new ObjectMapper();
-            TypeReference<Map<String, Object>> typeReference = new TypeReference<>() {};
-
-            return mapper.readValue(payload, typeReference);
-        } catch (Exception e) {
-            // Handle exception (e.g., log it or throw a custom exception)
-            System.err.println("Error parsing JWT: " + e.getMessage());
-            return null;
-        }
-    }
 
 
     public TokenSet getTokenSet(Long userId) {

@@ -65,6 +65,10 @@ public class User {
     }
 
     public String getProfileImgUrl(){
-        return String.format("https://%s.s3.%s.amazonaws.com/%s", "meeting-sideproject", "ap-northeast-2", this.getProfileImgName());
+        return getProfileImgSource(this.getProfileImgName());
+    }
+
+    public static String getProfileImgSource(String key){
+        return String.format("https://%s.s3.%s.amazonaws.com/%s", "meeting-sideproject", "ap-northeast-2", key);
     }
 }

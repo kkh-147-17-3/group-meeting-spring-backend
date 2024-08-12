@@ -2,6 +2,7 @@ package com.sideprj.groupmeeting.scheduler;
 
 import com.sideprj.groupmeeting.dto.NotificationRequest;
 import com.sideprj.groupmeeting.entity.Notification;
+import com.sideprj.groupmeeting.repository.MeetingPlanRepository;
 import com.sideprj.groupmeeting.repository.MeetingRepositorySupport;
 import com.sideprj.groupmeeting.repository.NotificationRepository;
 import com.sideprj.groupmeeting.repository.UserRepository;
@@ -25,6 +26,7 @@ public class NotificationScheduler {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final MeetingRepositorySupport meetingRepositorySupport;
+    private final MeetingPlanRepository meetingPlanRepository;
 
     private final OkHttpClient okHttpClient;
 
@@ -33,17 +35,17 @@ public class NotificationScheduler {
     public void sendNotification() throws Exception {
         var notifications = notificationRepository.findByScheduledAtBeforeAndSentAtNull(LocalDateTime.now());
         var requests = notifications.stream()
-                                    .map(noti -> new NotificationRequest(
-                                            noti.getId(),
-                                            noti.getTitle(),
-                                            noti.getMessage(),
-                                            noti.getActionData(),
-                                            noti.getActionType(),
-                                            noti.getDeviceToken(),
-                                            noti.getDeviceType(),
-                                            noti.getUser().getBadgeCount() + 1
-                                    ))
-                                    .toList();
+                .map(noti -> new NotificationRequest(
+                        noti.getId(),
+                        noti.getTitle(),
+                        noti.getMessage(),
+                        noti.getActionData(),
+                        noti.getActionType(),
+                        noti.getDeviceToken(),
+                        noti.getDeviceType(),
+                        noti.getUser().getBadgeCount() + 1
+                ))
+                .toList();
 
         var futures = notificationService.sendMultipleNotifications(requests);
 
@@ -78,16 +80,43 @@ public class NotificationScheduler {
         var notifications = meetings
                 .stream()
                 .map(meeting -> Notification.builder()
-                                            .deviceToken(meeting.getCreator()
-                                                                .getDeviceToken())
-                                            .deviceType(meeting.getCreator()
-                                                               .getDeviceType())
-                                            .scheduledAt(meeting.getCreatedAt()
-                                                                .plusHours(1))
-                                            .title(title)
-                                            .message(message)
-                                            .build()
+                        .deviceToken(meeting.getCreator()
+                                .getDeviceToken())
+                        .deviceType(meeting.getCreator()
+                                .getDeviceType())
+                        .scheduledAt(meeting.getCreatedAt()
+                                .plusHours(1))
+                        .title(title)
+                        .message(message)
+                        .build()
                 ).toList();
+        notificationRepository.saveAll(notifications);
+    }
+
+    @Scheduled(fixedDelay = 10 * 60 * 1000)
+    @Transactional
+    public void sendToMeetingPlanParticipantBefore24Hours() {
+        var minStartAt = LocalDateTime.now().plusDays(1);
+        var maxStartAt = minStartAt.plusMinutes(10);
+        var meetingPlans = meetingPlanRepository.findByStartAtBetween(minStartAt, maxStartAt);
+        var title = "모임 약속 24시간 전 알림";
+        var message = "%s 모임 약속까지 24시간 남았습니다. 약속 일정을 확인해주세요.";
+        var notifications = new ArrayList<Notification>();
+        meetingPlans.forEach(plan -> {
+            var participants = plan.getParticipants();
+            var notificationsPerPlan = participants
+                    .stream()
+                    .map((participant) -> Notification.builder()
+                            .user(participant.getUser())
+                            .deviceToken(participant.getUser().getDeviceToken())
+                            .deviceType(participant.getUser().getDeviceType())
+                            .scheduledAt(plan.getStartAt().minusDays(1))
+                            .title(title)
+                            .message(message.formatted(plan.getName()))
+                            .build())
+                    .toList();
+            notifications.addAll(notificationsPerPlan);
+        });
         notificationRepository.saveAll(notifications);
     }
 }

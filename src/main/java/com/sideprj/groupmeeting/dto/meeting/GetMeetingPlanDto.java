@@ -11,7 +11,7 @@ import java.util.List;
 public record GetMeetingPlanDto(
         Long id,
         String name,
-        List<GetUserDto> participants,
+        List<GetMeetingPlanParticipantDto> participants,
         LocalDateTime startAt,
         LocalDateTime endAt,
         String address,

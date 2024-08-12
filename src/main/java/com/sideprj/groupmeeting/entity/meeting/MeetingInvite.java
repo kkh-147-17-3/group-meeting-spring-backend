@@ -26,4 +26,9 @@ public class MeetingInvite extends BaseTimeEntity {
 
     @ManyToOne
     private Meeting meeting;
+
+    public String getInviteUrl() {
+        var url = "https://deeplink.ugsm.co.kr";
+        return "%s/m/%s".formatted(url, id.toString());
+    }
 }

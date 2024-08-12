@@ -1,10 +1,6 @@
 package com.sideprj.groupmeeting.mapper;
 
-import com.sideprj.groupmeeting.dto.meeting.GetMeetingDto;
-import com.sideprj.groupmeeting.dto.meeting.GetMeetingInviteDto;
-import com.sideprj.groupmeeting.dto.meeting.GetMeetingMemberDto;
-import com.sideprj.groupmeeting.dto.meeting.GetMeetingPlanDto;
-import com.sideprj.groupmeeting.dto.user.GetUserDto;
+import com.sideprj.groupmeeting.dto.meeting.*;
 import com.sideprj.groupmeeting.entity.User;
 import com.sideprj.groupmeeting.entity.meeting.*;
 import org.mapstruct.IterableMapping;
@@ -21,25 +17,19 @@ public interface MeetingMapper {
 
     MeetingMapper INSTANCE = Mappers.getMapper(MeetingMapper.class);
 
-    @Named("getInviteUrl")
-    static String getInviteUrl(UUID value) {
-        var url = "https://deeplink.ugsm.co.kr";
-        return "%s/m/%s".formatted(url, value.toString());
-    }
-
     @Named("getUserId")
     static Long getUserId(User user) {
         return user.getId();
     }
 
-    @Named("getUserName")
-    static String getUserName(User user) {
+    @Named("getUserNickname")
+    static String getUserNickname(User user) {
         return user.getNickname();
     }
 
     @Named("meetingToDto")
     @Mapping(source = "creator", target = "creatorId", qualifiedByName = "getUserId")
-    @Mapping(source = "creator", target = "creatorName", qualifiedByName = "getUserName")
+    @Mapping(source = "creator", target = "creatorName", qualifiedByName = "getUserNickname")
     GetMeetingDto toGetDto(Meeting meeting);
 
     @Named("planToDto")
@@ -51,20 +41,19 @@ public interface MeetingMapper {
 
     @Named("memberToDto")
     @Mapping(source = "user", target = "userId", qualifiedByName = "getUserId")
-    @Mapping(source = "user", target = "username", qualifiedByName = "getUserName")
+    @Mapping(source = "user", target = "userNickname", qualifiedByName = "getUserNickname")
     @Mapping(source = "createdAt", target = "joinedAt")
     GetMeetingMemberDto toGetMemberDto(MeetingMember meetingMember);
 
     @IterableMapping(qualifiedByName = "memberToDto")
     List<GetMeetingMemberDto> toGetMembersDto(List<MeetingMember> meetingMember);
 
-    @Mapping(source = "id", target = "inviteUrl", qualifiedByName = "getInviteUrl")
     GetMeetingInviteDto toGetInviteDto(MeetingInvite meetingInvite);
 
-    @Mapping(source = "user.id", target = "id")
-    @Mapping(source = "user.nickname", target = "nickname")
-    @Mapping(source = "user.profileImgUrl", target = "profileImgUrl")
-    GetUserDto planParticiapantToGetUserDto(MeetingPlanParticipant meetingParticipant);
+    @Mapping(source = "user.id", target = "userId")
+    @Mapping(source = "user.nickname", target = "userNickname")
+    @Mapping(source = "user.profileImgUrl", target = "userProfileImgUrl")
+    GetMeetingPlanParticipantDto planParticipantToGetUserDto(MeetingPlanParticipant meetingParticipant);
 
     @IterableMapping(qualifiedByName = "meetingToDto")
     List<GetMeetingDto> toGetDtos(List<Meeting> meetings);

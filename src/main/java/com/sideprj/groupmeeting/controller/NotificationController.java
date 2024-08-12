@@ -1,5 +1,6 @@
 package com.sideprj.groupmeeting.controller;
 
+import com.sideprj.groupmeeting.dto.DefaultUserDetails;
 import com.sideprj.groupmeeting.dto.user.GetUserDto;
 import com.sideprj.groupmeeting.exceptions.ResourceNotFoundException;
 import com.sideprj.groupmeeting.exceptions.UnauthorizedException;
@@ -22,8 +23,8 @@ public class NotificationController {
     }
 
     @PostMapping("{id}")
-    public ResponseEntity<Object> updateAsRead(@AuthenticationPrincipal GetUserDto userInfo, @PathVariable Long id) throws UnauthorizedException, ResourceNotFoundException {
-        notificationService.updateAsRead(userInfo.id(), id);
+    public ResponseEntity<Object> updateAsRead(@AuthenticationPrincipal DefaultUserDetails userDetails, @PathVariable Long id) throws UnauthorizedException, ResourceNotFoundException {
+        notificationService.updateAsRead(userDetails.getId(), id);
         return ResponseEntity.ok().build();
     }
 }

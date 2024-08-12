@@ -1,10 +1,12 @@
 package com.sideprj.groupmeeting.controller;
 
 
+import com.sideprj.groupmeeting.dto.DefaultUserDetails;
 import com.sideprj.groupmeeting.dto.user.GetUserDto;
 import com.sideprj.groupmeeting.dto.user.UpdateUserDeviceDto;
 import com.sideprj.groupmeeting.dto.user.UpdateUserDto;
 import com.sideprj.groupmeeting.exceptions.ResourceNotFoundException;
+import com.sideprj.groupmeeting.service.NicknameService;
 import com.sideprj.groupmeeting.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -17,30 +19,33 @@ import java.io.IOException;
 @RequestMapping("/user")
 public class UserController {
     private final UserService userService;
+    private final NicknameService nicknameService;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, NicknameService nicknameService) {
         this.userService = userService;
+        this.nicknameService = nicknameService;
     }
 
     @GetMapping("/me")
-    public ResponseEntity<GetUserDto> getMyInfo(@AuthenticationPrincipal GetUserDto userInfo) {
+    public ResponseEntity<GetUserDto> getMyInfo(@AuthenticationPrincipal DefaultUserDetails userDetails) throws ResourceNotFoundException {
+        var userInfo = userService.get(userDetails.getId());
         return ResponseEntity.ok(userInfo);
     }
 
     @PatchMapping("/me")
     public ResponseEntity<GetUserDto> updateMyInfo(
-            @AuthenticationPrincipal GetUserDto userInfo,
+            @AuthenticationPrincipal DefaultUserDetails userDetails,
             @RequestParam String nickname,
             @RequestParam MultipartFile profile
     ) throws IOException {
         var dto = new UpdateUserDto(profile, nickname);
-        var updatedUserInfo = userService.update(userInfo.id(), dto);
+        var updatedUserInfo = userService.update(userDetails.getId(), dto);
         return ResponseEntity.ok(updatedUserInfo);
     }
 
     @GetMapping("/nickname/{nickname}/duplicated")
     public ResponseEntity<Boolean> checkUserNicknameDuplicated(
-            @AuthenticationPrincipal GetUserDto userInfo,
+            @AuthenticationPrincipal DefaultUserDetails userDetails,
             @PathVariable String nickname
     ) {
         var result = userService.checkNicknameDuplicated(nickname);
@@ -49,10 +54,16 @@ public class UserController {
 
     @PatchMapping("/me/device")
     public ResponseEntity<Object> updateMyDeviceInfo(
-            @AuthenticationPrincipal GetUserDto userInfo,
+            @AuthenticationPrincipal DefaultUserDetails userDetails,
             @RequestBody UpdateUserDeviceDto dto
     ) throws ResourceNotFoundException {
-        userService.updateDeviceInfo(userInfo.id(), dto);
+        userService.updateDeviceInfo(userDetails.getId(), dto);
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/nickname/random")
+    public ResponseEntity<String> getRandomNickname(){
+        var nickname = nicknameService.generateRandomNickname();
+        return ResponseEntity.ok(nickname);
     }
 }

@@ -1,6 +1,7 @@
 package com.sideprj.groupmeeting.controller;
 
 import com.sideprj.groupmeeting.annotation.ApiLogging;
+import com.sideprj.groupmeeting.dto.DefaultUserDetails;
 import com.sideprj.groupmeeting.dto.meeting.*;
 import com.sideprj.groupmeeting.dto.user.GetUserDto;
 import com.sideprj.groupmeeting.exceptions.BadRequestException;
@@ -10,6 +11,7 @@ import com.sideprj.groupmeeting.service.MeetingService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -29,70 +31,70 @@ public class MeetingController {
 
     @PostMapping()
     public ResponseEntity<GetMeetingDto> create(
-            @AuthenticationPrincipal GetUserDto userInfo, @RequestParam MultipartFile image, @RequestParam String name
+            @AuthenticationPrincipal DefaultUserDetails userDetails, @RequestParam MultipartFile image, @RequestParam String name
     ) throws BadRequestException, IOException {
         var dto = new CreateMeetingDto(name, image);
-        var meetingInfo = meetingService.create(userInfo.id(), dto);
+        var meetingInfo = meetingService.create(userDetails.getId(), dto);
         return ResponseEntity.ok(meetingInfo);
     }
 
     @PatchMapping("/{id}")
     public ResponseEntity<GetMeetingDto> update(
             @PathVariable Long id,
-            @AuthenticationPrincipal GetUserDto userInfo,
+            @AuthenticationPrincipal DefaultUserDetails userDetails,
             @RequestParam MultipartFile image,
             @RequestParam String name
     ) throws UnauthorizedException, IOException, ResourceNotFoundException {
         var dto = new UpdateMeetingDto(id, name, image);
-        var meetingInfo = meetingService.update(userInfo.id(), dto);
+        var meetingInfo = meetingService.update(userDetails.getId(), dto);
         return ResponseEntity.ok(meetingInfo);
     }
 
     @PostMapping("/{id}/plan")
     public ResponseEntity<GetMeetingPlanDto> createPlan(
-            @AuthenticationPrincipal GetUserDto userInfo,
+            @AuthenticationPrincipal DefaultUserDetails userDetails,
             @PathVariable Long id,
             @RequestBody CreateMeetingPlanDto dto
     ) throws UnauthorizedException, BadRequestException, ResourceNotFoundException {
         dto.setMeetingId(id);
-        var invite = meetingService.createPlan(userInfo.id(), dto);
+        var invite = meetingService.createPlan(userDetails.getId(), dto);
         return ResponseEntity.ok(invite);
     }
 
     @GetMapping("/plan")
     @ApiLogging
     public ResponseEntity<List<GetMeetingPlanDto>> getMyPlan(
-            @AuthenticationPrincipal GetUserDto userInfo
+            @AuthenticationPrincipal DefaultUserDetails userDetails
     ) {
-        var plans = meetingService.getMeetingPlansByParticipantUserId(userInfo.id());
+        var plans = meetingService.getMeetingPlansByParticipantUserId(userDetails.getId());
         return ResponseEntity.ok(plans);
     }
 
     @PostMapping("/{id}/member")
     public ResponseEntity<List<GetMeetingMemberDto>> createMember(
-            @AuthenticationPrincipal GetUserDto userInfo,
+            @AuthenticationPrincipal DefaultUserDetails userDetails,
             @PathVariable Long id,
             @RequestParam CreateMeetingMemberDto dto
     ) throws BadRequestException, ResourceNotFoundException, UnauthorizedException {
         dto.setMeetingId(id);
-        var invite = meetingService.createMember(userInfo.id(), dto);
+        var invite = meetingService.createMember(userDetails.getId(), dto);
         return ResponseEntity.ok(invite);
     }
 
     @PostMapping("/{id}/invite")
     public ResponseEntity<GetMeetingInviteDto> createInvite(
-            @AuthenticationPrincipal GetUserDto userInfo,
+            @AuthenticationPrincipal DefaultUserDetails userDetails,
             @PathVariable Long id,
             @Valid @RequestBody CreateMeetingInviteDto dto
     ) throws ResourceNotFoundException {
 
-        var invite = meetingService.createInvite(userInfo.id(), id, dto.expiresIn());
+        var invite = meetingService.createInvite(userDetails.getId(), id, dto.expiresIn());
         return ResponseEntity.ok(invite);
     }
 
     @GetMapping("active")
-    public ResponseEntity<List<GetMeetingDto>> getMyMeeting(@AuthenticationPrincipal GetUserDto userInfo) {
-        var meetings = meetingService.getActiveMeetingsByUserId(userInfo.id());
+    public ResponseEntity<List<GetMeetingDto>> getMyMeeting(@AuthenticationPrincipal DefaultUserDetails userDetails) {
+        var meetings = meetingService.getActiveMeetingsByUserId(userDetails.getId());
         return ResponseEntity.ok(meetings);
     }
 
@@ -109,30 +111,30 @@ public class MeetingController {
     @ApiLogging
     @PatchMapping("/plan/{id}")
     public ResponseEntity<GetMeetingPlanDto> updatePlan(
-            @AuthenticationPrincipal GetUserDto userInfo,
+            @AuthenticationPrincipal DefaultUserDetails userDetails,
             @PathVariable Long id,
             @RequestBody UpdateMeetingPlanDto dto
     ) throws ResourceNotFoundException, UnauthorizedException {
         dto.setMeetingPlanId(id);
-        var result = meetingService.updatePlan(userInfo.id(), dto);
+        var result = meetingService.updatePlan(userDetails.getId(), dto);
         return ResponseEntity.ok(result);
     }
 
     @PostMapping("/plan/{id}/join")
     public ResponseEntity<GetMeetingPlanDto> joinMeetingPlan(
-            @AuthenticationPrincipal GetUserDto userInfo,
+            @AuthenticationPrincipal DefaultUserDetails userDetails,
             @PathVariable Long id
     ) throws BadRequestException, ResourceNotFoundException {
-        var result = meetingService.createPlanParticipant(userInfo.id(), id);
+        var result = meetingService.createPlanParticipant(userDetails.getId(), id);
         return ResponseEntity.ok(result);
     }
 
     @DeleteMapping("/plan/{id}/join")
     public ResponseEntity<GetMeetingPlanDto> leaveMeetingPlan(
-            @AuthenticationPrincipal GetUserDto userInfo,
+            @AuthenticationPrincipal DefaultUserDetails userDetails,
             @PathVariable Long id
     ) throws BadRequestException, ResourceNotFoundException {
-        var result = meetingService.deletePlanParticipant(userInfo.id(), id);
+        var result = meetingService.deletePlanParticipant(userDetails.getId(), id);
         return ResponseEntity.ok(result);
     }
 }

@@ -26,11 +26,13 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final AwsS3Service awsS3Service;
+    private final UserMapper mapper;
 
     @Autowired
-    public UserService(UserRepository userRepository, AwsS3Service awsS3Service) {
+    public UserService(UserRepository userRepository, AwsS3Service awsS3Service, UserMapper mapper) {
         this.userRepository = userRepository;
         this.awsS3Service = awsS3Service;
+        this.mapper = mapper;
     }
 
     @Transactional
@@ -48,15 +50,21 @@ public class UserService {
         newUser.setSocialProviderId(registeredUserInfo.socialProviderId());
         newUser.setSocialProvider(registeredUserInfo.socialProvider());
 
-        userRepository.save(newUser);
-        return UserMapper.INSTANCE.toGetDto(newUser);
+        newUser = userRepository.save(newUser);
+        return mapper.toGetDto(newUser);
     }
 
-    public Optional<GetUserDto> getInfo(
+
+    public GetUserDto get(Long userId) throws ResourceNotFoundException {
+        var user = userRepository.findById(userId).orElseThrow(ResourceNotFoundException::new);
+        return mapper.toGetDto(user);
+    }
+
+    private Optional<GetUserDto> getInfo(
             User.SocialProvider socialProvider,
             String socialProviderId) {
         return userRepository.findBySocialProviderAndSocialProviderId(socialProvider, socialProviderId)
-                .map(UserMapper.INSTANCE::toGetDto);
+                .map(mapper::toGetDto);
     }
 
     @Transactional
@@ -71,8 +79,8 @@ public class UserService {
         user.setProfileImgName(profileImgName);
         user.setNickname(updateUserDto.nickname() != null ? updateUserDto.nickname() : user.getNickname());
 
-        userRepository.save(user);
-        return UserMapper.INSTANCE.toGetDto(user);
+        user = userRepository.save(user);
+        return mapper.toGetDto(user);
     }
 
     @Transactional
@@ -104,7 +112,7 @@ public class UserService {
         user.setDeviceToken(dto.deviceToken());
         user.setDeviceType(dto.deviceType());
         user.setLastLaunchAt(LocalDateTime.now());
-        userRepository.save(user);
-        UserMapper.INSTANCE.toGetDto(user);
+        user = userRepository.save(user);
+        mapper.toGetDto(user);
     }
 }

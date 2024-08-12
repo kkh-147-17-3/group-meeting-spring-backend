@@ -21,6 +21,7 @@ public class Notification extends BaseTimeEntity {
     private User user;
 
     @Column
+    @Enumerated(EnumType.STRING)
     private User.DeviceType deviceType;
 
     @Column
