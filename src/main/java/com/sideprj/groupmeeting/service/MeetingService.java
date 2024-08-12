@@ -225,9 +225,9 @@ public class MeetingService {
 
     public GetMeetingInviteDto createInvite(
             Long userId,
-            Long meetingId,
-            int expiresIn
+            Long meetingId
     ) throws ResourceNotFoundException {
+        var expiresIn = 1000 * 60 * 24;
         var meeting = meetingRepository.findById(meetingId).orElseThrow(ResourceNotFoundException::new);
 
         var expiredAt = Instant.ofEpochMilli(

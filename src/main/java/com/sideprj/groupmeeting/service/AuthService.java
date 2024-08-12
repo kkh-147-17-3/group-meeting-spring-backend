@@ -163,7 +163,7 @@ public class AuthService {
                 .setClaims(claims)
                 .setSubject(userId.toString())
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + 60 * 60 * 1000))
+                .setExpiration(new Date(System.currentTimeMillis() + 60000L * 60 * 1000))
                 .signWith(SignatureAlgorithm.HS256, jwtSecret)
                 .compact();
     }
@@ -191,6 +191,10 @@ public class AuthService {
         } catch (Exception e) {
             throw new HttpClientErrorException(HttpStatus.UNAUTHORIZED, e.getMessage());
         }
+    }
+
+    public String testToken(Long userId){
+        return getUserAccessToken(userId);
     }
 }
 

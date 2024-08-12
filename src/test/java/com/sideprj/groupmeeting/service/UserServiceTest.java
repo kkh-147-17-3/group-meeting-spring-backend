@@ -8,8 +8,8 @@ import com.sideprj.groupmeeting.entity.User;
 import com.sideprj.groupmeeting.exceptions.ResourceNotFoundException;
 import com.sideprj.groupmeeting.mapper.UserMapper;
 import com.sideprj.groupmeeting.repository.UserRepository;
-import org.apache.coyote.BadRequestException;
 import org.junit.jupiter.api.BeforeEach;
+import com.sideprj.groupmeeting.exceptions.BadRequestException;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -39,7 +39,6 @@ class UserServiceTest {
 
     @BeforeEach
     void setUp() {
-        when(mapper.toGetDto(any(User.class)));
         MockitoAnnotations.openMocks(this);
     }
 
@@ -56,6 +55,8 @@ class UserServiceTest {
         ).thenReturn(Optional.empty());
         when(userRepository.save(any(User.class))).thenReturn(newUser);
 
+        when(mapper.toGetDto(eq(newUser))).thenReturn(new GetUserDto(1L, null, null, 0));
+
         GetUserDto result = userService.create(dto);
 
         assertNotNull(result);
@@ -69,10 +70,13 @@ class UserServiceTest {
         CreateUserDto dto = new CreateUserDto(User.SocialProvider.APPLE, "123456");
         User existingUser = new User();
         existingUser.setId(1L);
+        existingUser.setSocialProvider(User.SocialProvider.APPLE);
+        existingUser.setSocialProviderId("123456");
 
         when(userRepository.findBySocialProviderAndSocialProviderId(
                 eq(User.SocialProvider.APPLE), eq("123456"))
         ).thenReturn(Optional.of(existingUser));
+        when(mapper.toGetDto(existingUser)).thenReturn(new GetUserDto(1L, null,null, 0));
 
         assertThrows(BadRequestException.class, () -> userService.create(dto));
 
@@ -84,8 +88,11 @@ class UserServiceTest {
         User user = new User();
         user.setId(1L);
         user.setNickname("TestUser");
+        user.setProfileImgName("TestImg");
+        user.setBadgeCount(10);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(mapper.toGetDto(eq(user))).thenReturn(new GetUserDto(1L,"TestUser",user.getProfileImgUrl(), 10));
 
         GetUserDto result = userService.get(1L);
 
@@ -102,7 +109,7 @@ class UserServiceTest {
     }
 
     @Test
-    void testUpdate_ExistingUser_Success() throws IOException {
+    void testUpdate_ExistingUser_Success() throws IOException, BadRequestException {
         User user = new User();
         user.setId(1L);
         user.setNickname("OldNickname");
@@ -111,8 +118,11 @@ class UserServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userRepository.save(any(User.class))).thenReturn(user);
+        when(mapper.toGetDto(eq(user)))
+                .thenReturn(new GetUserDto(1L, "NewNickname", null, 0));
 
         GetUserDto result = userService.update(1L, updateDto);
+
 
         assertNotNull(result);
         assertEquals("NewNickname", result.nickname());
@@ -121,7 +131,7 @@ class UserServiceTest {
     }
 
     @Test
-    void testUpdate_WithProfileImage_Success() throws IOException {
+    void testUpdate_WithProfileImage_Success() throws IOException, BadRequestException {
         User user = new User();
         user.setId(1L);
         user.setNickname("OldNickname");
@@ -130,14 +140,16 @@ class UserServiceTest {
         UpdateUserDto updateDto = new UpdateUserDto(file, null);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(awsS3Service.uploadImage(any(), any(), any(), any())).thenReturn("new-image-url");
+        when(awsS3Service.uploadImage(any(), any(), any(), any())).thenReturn("new-image-filename");
         when(userRepository.save(any(User.class))).thenReturn(user);
+        when(mapper.toGetDto(eq(user)))
+                .thenReturn(new GetUserDto(1L, "OldNickname", User.getProfileImgSource("new-image-filename"), 0));
 
         GetUserDto result = userService.update(1L, updateDto);
 
         assertNotNull(result);
         assertEquals("OldNickname", result.nickname());
-        assertEquals(User.getProfileImgSource("new-image-url"), result.profileImgUrl());
+        assertEquals(User.getProfileImgSource("new-image-filename"), result.profileImgUrl());
 
         verify(awsS3Service).uploadImage(any(), any(), any(), any());
         verify(userRepository).save(user);

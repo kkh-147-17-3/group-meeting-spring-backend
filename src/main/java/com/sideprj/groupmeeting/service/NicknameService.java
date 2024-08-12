@@ -46,9 +46,6 @@ public class NicknameService {
 
     public String generateRandomNickname() {
         var random = new Random();
-        int min = 100;
-        int max = 999;
-        int randomNumber = random.nextInt((max - min) + 1) + min;
 
         var randomAdjIdx = random.nextInt(adjectives.length);
         var randomNounIdx = random.nextInt(nouns.length);
@@ -56,7 +53,7 @@ public class NicknameService {
         var isDuplicated = true;
         String nickname;
         do {
-            nickname = "%s%s%s".formatted(adjectives[randomAdjIdx], nouns[randomNounIdx], String.valueOf(randomNumber));
+            nickname = "%s%s".formatted(adjectives[randomAdjIdx], nouns[randomNounIdx]);
             isDuplicated = userService.checkNicknameDuplicated(nickname);
         } while (isDuplicated || nickname.isEmpty());
 

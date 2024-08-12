@@ -65,8 +65,11 @@ public class MeetingRepositorySupport {
                                                               )
                                                               .where(meetingPlanParticipant.user.id.eq(userId))
                                                               .fetch()
-                                          ))
+                                          )
+                                          .and(meetingPlan.startAt.after(LocalDateTime.now()))
+                           )
                            .orderBy(meetingPlan.startAt.asc())
+                           .limit(5)
                            .fetch();
     }
 

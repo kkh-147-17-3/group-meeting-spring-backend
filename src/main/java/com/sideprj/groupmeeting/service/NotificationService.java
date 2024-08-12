@@ -131,6 +131,7 @@ public class NotificationService {
             public void onFailure(@NotNull Call call, @NotNull IOException e) {
                 log.error(e.getMessage());
                 future.completeExceptionally(e);
+                call.cancel();
             }
 
             @Override
@@ -158,6 +159,7 @@ public class NotificationService {
                             null
                     ));
                 }
+                response.close();
             }
         });
 
@@ -169,7 +171,11 @@ public class NotificationService {
 
         // Send notifications asynchronously to all device tokens
         return requests.stream()
-                .map((request) -> sendPushNotification(request, jwtToken))
-                .toList();
+                       .map((request) -> sendPushNotification(request, jwtToken))
+                       .toList();
+    }
+
+    public int readUnreadNotification(Long userId) {
+//        var notifications = notificationRepository.findByUserIdAndSentAtIsNull(userId);
     }
 }

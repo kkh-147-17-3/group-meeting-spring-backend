@@ -5,11 +5,11 @@ import com.sideprj.groupmeeting.dto.user.GetUserDto;
 import com.sideprj.groupmeeting.dto.user.UpdateUserDeviceDto;
 import com.sideprj.groupmeeting.dto.user.UpdateUserDto;
 import com.sideprj.groupmeeting.entity.User;
+import com.sideprj.groupmeeting.exceptions.BadRequestException;
 import com.sideprj.groupmeeting.exceptions.ResourceNotFoundException;
 import com.sideprj.groupmeeting.mapper.UserMapper;
 import com.sideprj.groupmeeting.repository.UserRepository;
 import jakarta.validation.Valid;
-import org.apache.coyote.BadRequestException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -68,7 +68,7 @@ public class UserService {
     }
 
     @Transactional
-    public GetUserDto update(Long id, UpdateUserDto updateUserDto) throws IOException {
+    public GetUserDto update(Long id, UpdateUserDto updateUserDto) throws IOException, BadRequestException {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new BadRequestException("User not found"));
 
@@ -76,6 +76,11 @@ public class UserService {
         if (updateUserDto.profileImg() != null) {
             profileImgName = awsS3Service.uploadImage(null, "meeting-sideproject", "profile" ,updateUserDto.profileImg());
         }
+
+        if (checkNicknameDuplicated(updateUserDto.nickname())){
+            throw new BadRequestException("중복된 닉네임입니다.");
+        }
+
         user.setProfileImgName(profileImgName);
         user.setNickname(updateUserDto.nickname() != null ? updateUserDto.nickname() : user.getNickname());
 

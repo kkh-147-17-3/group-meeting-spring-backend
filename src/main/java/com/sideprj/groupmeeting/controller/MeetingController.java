@@ -84,11 +84,10 @@ public class MeetingController {
     @PostMapping("/{id}/invite")
     public ResponseEntity<GetMeetingInviteDto> createInvite(
             @AuthenticationPrincipal DefaultUserDetails userDetails,
-            @PathVariable Long id,
-            @Valid @RequestBody CreateMeetingInviteDto dto
+            @PathVariable Long id
     ) throws ResourceNotFoundException {
 
-        var invite = meetingService.createInvite(userDetails.getId(), id, dto.expiresIn());
+        var invite = meetingService.createInvite(userDetails.getId(), id);
         return ResponseEntity.ok(invite);
     }
 
@@ -102,7 +101,7 @@ public class MeetingController {
     @RequestMapping(value = {"/{id}", "/"}, method = RequestMethod.GET)
     public ResponseEntity<GetMeetingDto> getMeetingInfo(
             @PathVariable(value = "id", required = false) Long id,
-            @RequestParam UUID inviteId
+            @RequestParam(required = false) UUID inviteId
     ) throws ResourceNotFoundException {
         var meeting = meetingService.findByIdAndInviteId(id, inviteId);
         return ResponseEntity.ok(meeting);
