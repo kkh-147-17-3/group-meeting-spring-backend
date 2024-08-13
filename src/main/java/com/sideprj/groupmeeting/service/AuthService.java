@@ -1,11 +1,12 @@
 package com.sideprj.groupmeeting.service;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sideprj.groupmeeting.dto.TokenSet;
 import com.sideprj.groupmeeting.entity.User;
+import com.sideprj.groupmeeting.exceptions.BadRequestException;
 import com.sideprj.groupmeeting.exceptions.UnauthorizedException;
+import com.sideprj.groupmeeting.jwt.JwtProvider;
 import com.sideprj.groupmeeting.repository.UserRepository;
 import io.jsonwebtoken.JwsHeader;
 import lombok.Getter;
@@ -53,6 +54,9 @@ public class AuthService {
     @Value("${apple.key.id}")
     private String appleKeyId;
 
+    private static final long ACCESS_TOKEN_EXPIRES_IN =  60000L * 60 * 1000;
+    private static final long REFRESH_TOKEN_EXPIRES_IN = 30L * 24 * 60 * 60 * 1000;
+
     private static final String APPLE_TOKEN_URL = "https://appleid.apple.com/auth/token";
 
     private final PrivateKey applePrivateKey;
@@ -61,17 +65,20 @@ public class AuthService {
 
     private final ObjectMapper mapper;
 
+    private final JwtProvider jwtProvider;
+
     @Autowired
     public AuthService(
             UserRepository userRepository,
             ObjectMapper mapper,
             OkHttpClient client,
-            @Value("${apple.private_key_path}") String applePrivateKeyPath
+            @Value("${apple.private_key_path}") String applePrivateKeyPath, JwtProvider jwtProvider
     ) throws IOException {
         this.userRepository = userRepository;
         this.applePrivateKey = getPrivateKey(applePrivateKeyPath);
         this.mapper = mapper;
         this.client = client;
+        this.jwtProvider = jwtProvider;
     }
 
     public static PrivateKey getPrivateKey(String filePath) throws IOException {
@@ -141,7 +148,7 @@ public class AuthService {
 
 
     public TokenSet getTokenSet(Long userId) {
-        return new TokenSet(getUserAccessToken(userId), getUserRefreshToken(userId));
+        return new TokenSet(getUserAccessToken(userId, ACCESS_TOKEN_EXPIRES_IN), getUserRefreshToken(userId));
     }
 
     public String getUserRefreshToken(Long userId) {
@@ -151,20 +158,20 @@ public class AuthService {
                 .setClaims(claims)
                 .setSubject(userId.toString())
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + 30L * 24 * 60 * 60 * 1000))
-                .signWith(SignatureAlgorithm.HS256, jwtSecret)
+                .setExpiration(new Date(System.currentTimeMillis() + REFRESH_TOKEN_EXPIRES_IN))
+                .signWith(SignatureAlgorithm.HS256, jwtSecret.getBytes())
                 .compact();
     }
 
-    public String getUserAccessToken(Long userId) {
+    public String getUserAccessToken(Long userId, long expiresIn) {
         Map<String, Object> claims = new DefaultClaims();
         claims.put("type", "access");
         return Jwts.builder()
                 .setClaims(claims)
                 .setSubject(userId.toString())
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + 60000L * 60 * 1000))
-                .signWith(SignatureAlgorithm.HS256, jwtSecret)
+                .setExpiration(new Date(System.currentTimeMillis() + expiresIn))
+                .signWith(SignatureAlgorithm.HS256, jwtSecret.getBytes())
                 .compact();
     }
 
@@ -184,17 +191,31 @@ public class AuthService {
                 .compact();
     }
 
-    public String reissueAccessToken(Long userId, String refreshToken) {
-        try {
-            Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(refreshToken);
-            return getUserAccessToken(userId);
-        } catch (Exception e) {
-            throw new HttpClientErrorException(HttpStatus.UNAUTHORIZED, e.getMessage());
+    public String reissueAccessToken(String accessToken, String refreshToken) throws BadRequestException, UnauthorizedException {
+        if(!jwtProvider.isAccessToken(accessToken)){
+            throw new BadRequestException("올바른 엑세스 토큰이 아닙니다.");
         }
+
+        if(!jwtProvider.isExpired(accessToken)){
+            throw new BadRequestException("토큰이 만료되지 않았습니다.");
+        }
+
+        if(!jwtProvider.isRefreshToken(refreshToken)){
+            throw new BadRequestException("리프레시 토큰이 아닙니다.");
+        }
+
+        var accessTokenUserId = jwtProvider.getUserId(accessToken, true);
+        var refreshTokenUserId = jwtProvider.getUserId(refreshToken);
+
+        if(!accessTokenUserId.equals(refreshTokenUserId)){
+            throw new UnauthorizedException();
+        }
+
+        return getUserAccessToken(accessTokenUserId, ACCESS_TOKEN_EXPIRES_IN);
     }
 
-    public String testToken(Long userId){
-        return getUserAccessToken(userId);
+    public String testToken(Long userId, int expiresIn){
+        return getUserAccessToken(userId, expiresIn);
     }
 }
 

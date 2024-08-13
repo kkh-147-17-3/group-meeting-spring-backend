@@ -9,14 +9,15 @@ import lombok.Setter;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
+import java.util.UUID;
 
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
 @Setter
-public class CreateMeetingMemberDto {
+public class JoinMeetingAsMemberDto {
     @NotNull
     private Long meetingId;
     @NotEmpty
-    private List<Long> memberIds;
+    private UUID inviteId;
 }

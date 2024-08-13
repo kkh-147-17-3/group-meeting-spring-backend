@@ -73,7 +73,7 @@ public class UserController {
     }
 
     @GetMapping("/{id}/token")
-    public ResponseEntity<String> getToken(@PathVariable Long id){
-        return ResponseEntity.ok(authService.testToken(id));
+    public ResponseEntity<String> getToken(@PathVariable Long id, @RequestParam(required = false) int expiresIn){
+        return ResponseEntity.ok(authService.testToken(id, expiresIn));
     }
 }

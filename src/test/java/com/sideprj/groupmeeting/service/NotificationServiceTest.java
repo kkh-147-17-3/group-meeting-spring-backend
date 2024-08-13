@@ -8,6 +8,7 @@ import com.sideprj.groupmeeting.entity.User;
 import com.sideprj.groupmeeting.exceptions.ResourceNotFoundException;
 import com.sideprj.groupmeeting.exceptions.UnauthorizedException;
 import com.sideprj.groupmeeting.repository.NotificationRepository;
+import com.sideprj.groupmeeting.repository.UserRepository;
 import com.sideprj.groupmeeting.util.AppleJwtTokenUtil;
 import okhttp3.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,6 +47,9 @@ class NotificationServiceTest {
     private OkHttpClient client;
 
     @Mock
+    private UserRepository userRepository;
+
+    @Mock
     private ObjectMapper mapper;
 
     private ECPrivateKey ecPrivateKey;
@@ -61,7 +65,7 @@ class NotificationServiceTest {
         try (var mockedStatic = mockStatic(AuthService.class)) {
             mockedStatic.when(() -> AuthService.getPrivateKey(anyString())).thenReturn(mock(PrivateKey.class));
 
-            notificationService = new NotificationService(notificationRepository, client,mapper, "dummy/path");
+            notificationService = new NotificationService(notificationRepository, userRepository, client,mapper, "dummy/path");
         }
         ReflectionTestUtils.setField(notificationService, "applePrivateKey", ecPrivateKey);
     }

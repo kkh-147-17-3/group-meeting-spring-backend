@@ -8,6 +8,7 @@ import com.sideprj.groupmeeting.dto.NotificationRequestResult;
 import com.sideprj.groupmeeting.exceptions.ResourceNotFoundException;
 import com.sideprj.groupmeeting.exceptions.UnauthorizedException;
 import com.sideprj.groupmeeting.repository.NotificationRepository;
+import com.sideprj.groupmeeting.repository.UserRepository;
 import com.sideprj.groupmeeting.util.AppleJwtTokenUtil;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +33,7 @@ public class NotificationService {
     private static final String APNS_URL = "https://api.push.apple.com/3/device/";
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
     private final NotificationRepository notificationRepository;
+    private final UserRepository userRepository;
 
     private final OkHttpClient client;
 
@@ -40,12 +42,13 @@ public class NotificationService {
     private final PrivateKey applePrivateKey;
 
     public NotificationService(
-            NotificationRepository notificationRepository,
+            NotificationRepository notificationRepository, UserRepository userRepository,
             OkHttpClient client,
             ObjectMapper mapper,
             @Value("${apple.private_key_path}") String applePrivateKeyPath
     ) throws IOException {
         this.notificationRepository = notificationRepository;
+        this.userRepository = userRepository;
         this.client = client;
         this.mapper = mapper;
         this.applePrivateKey = AuthService.getPrivateKey(applePrivateKeyPath);
@@ -175,7 +178,17 @@ public class NotificationService {
                        .toList();
     }
 
-    public int readUnreadNotification(Long userId) {
-//        var notifications = notificationRepository.findByUserIdAndSentAtIsNull(userId);
+    @Transactional
+    public int updateAllUnreadAsRead(Long userId) {
+        var notifications = notificationRepository.findByUserIdAndSentAtIsNull(userId);
+        if(notifications.isEmpty()) {
+            return 0;
+        }
+        var user = notifications.get(0).getUser();
+        user.setBadgeCount(0);
+        notifications.forEach(noti->noti.setReadAt(LocalDateTime.now()));
+        userRepository.save(user);
+        notificationRepository.saveAll(notifications);
+        return notifications.size();
     }
 }

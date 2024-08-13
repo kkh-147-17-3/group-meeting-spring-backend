@@ -33,7 +33,7 @@ public class NotificationScheduler {
     @Scheduled(fixedDelay = 60000)
     @Transactional
     public void sendNotification() throws Exception {
-        var notifications = notificationRepository.findByScheduledAtBeforeAndSentAtNull(LocalDateTime.now());
+        var notifications = notificationRepository.findByScheduledAtBeforeAndReadAtNotNullAndSentAtNull(LocalDateTime.now());
         var requests = notifications.stream()
                 .map(noti -> new NotificationRequest(
                         noti.getId(),
@@ -84,6 +84,7 @@ public class NotificationScheduler {
                                 .getDeviceToken())
                         .deviceType(meeting.getCreator()
                                 .getDeviceType())
+                        .user(meeting.getCreator())
                         .scheduledAt(meeting.getCreatedAt()
                                 .plusHours(1))
                         .title(title)

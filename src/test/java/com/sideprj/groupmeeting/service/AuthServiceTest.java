@@ -3,6 +3,8 @@ package com.sideprj.groupmeeting.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sideprj.groupmeeting.dto.TokenSet;
 import com.sideprj.groupmeeting.entity.User;
+import com.sideprj.groupmeeting.exceptions.BadRequestException;
+import com.sideprj.groupmeeting.exceptions.UnauthorizedException;
 import com.sideprj.groupmeeting.jwt.JwtProvider;
 import com.sideprj.groupmeeting.repository.UserRepository;
 import io.jsonwebtoken.JwtBuilder;
@@ -54,7 +56,12 @@ class AuthServiceTest {
 
     @Mock
     private ResponseBody responseBody;
+
+    @Mock
+    private JwtProvider jwtProvider;
+
     private ECPrivateKey ecPrivateKey;
+
     @BeforeEach
     void setUp() throws IOException, NoSuchAlgorithmException {
         MockitoAnnotations.openMocks(this);
@@ -66,7 +73,7 @@ class AuthServiceTest {
         try (var mockedStatic = mockStatic(AuthService.class)) {
             mockedStatic.when(() -> AuthService.getPrivateKey(anyString())).thenReturn(mock(PrivateKey.class));
 
-            authService = new AuthService(userRepository, objectMapper, okHttpClient, "dummy/path");
+            authService = new AuthService(userRepository, objectMapper, okHttpClient, "dummy/path", jwtProvider);
         }
         ReflectionTestUtils.setField(authService, "jwtSecret", "testSecret");
         ReflectionTestUtils.setField(authService, "appleTeamId", "testTeamId");
@@ -181,28 +188,74 @@ class AuthServiceTest {
     }
 
     @Test
-    void reissueAccessToken_Success() {
+    void reissueAccessToken_Success() throws UnauthorizedException, BadRequestException {
         // Arrange
         Long userId = 1L;
-        String refreshToken = Jwts.builder()
-                .setSubject(userId.toString())
-                .signWith(io.jsonwebtoken.SignatureAlgorithm.HS256, "testSecret")
-                .compact();
+        String accessToken = "access token";
+        String refreshToken = "refresh token";
+
+        when(jwtProvider.isAccessToken(eq(accessToken))).thenReturn(true);
+        when(jwtProvider.isExpired(eq(accessToken))).thenReturn(true);
+        when(jwtProvider.isRefreshToken(eq(refreshToken))).thenReturn(true);
+        when(jwtProvider.getUserId(eq(accessToken), eq(true))).thenReturn(userId);
+        when(jwtProvider.getUserId(eq(refreshToken))).thenReturn(userId);
 
         // Act
-        String result = authService.reissueAccessToken(userId, refreshToken);
+        String result = authService.reissueAccessToken(accessToken, refreshToken);
 
         // Assert
         assertNotNull(result);
     }
 
     @Test
-    void reissueAccessToken_InvalidToken() {
+    void reissueAccessToken_NotValidAccessToken() {
         // Arrange
-        Long userId = 1L;
-        String invalidRefreshToken = "invalidToken";
+        String accessToken = "not valid access token";
+        String refreshToken = "refresh token";
+
+        when(jwtProvider.isAccessToken(eq(accessToken))).thenReturn(false);
 
         // Act & Assert
-        assertThrows(HttpClientErrorException.class, () -> authService.reissueAccessToken(userId, invalidRefreshToken));
+        assertThrows(BadRequestException.class, () -> authService.reissueAccessToken(accessToken, refreshToken));
+    }
+
+    @Test
+    void reissueAccessToken_NotExpiredAccessToken() {
+        // Arrange
+        String accessToken = "not expired access token";
+        String refreshToken = "refresh token";
+
+        when(jwtProvider.isExpired(eq(accessToken))).thenReturn(false);
+
+        // Act & Assert
+        assertThrows(BadRequestException.class, () -> authService.reissueAccessToken(accessToken, refreshToken));
+    }
+
+    @Test
+    void reissueAccessToken_NotRefreshToken() {
+        String accessToken = "not expired access token";
+        String refreshToken = "not valid refresh token";
+
+        when(jwtProvider.isExpired(eq(accessToken))).thenReturn(true);
+        when(jwtProvider.isRefreshToken(eq(refreshToken))).thenReturn(true);
+
+        // Act & Assert
+        assertThrows(BadRequestException.class, () -> authService.reissueAccessToken(accessToken, refreshToken));
+    }
+
+    @Test
+    void reissueAccessToken_MismatchedSubjectOfAccessTokenAndRefreshToken() {
+        // Arrange
+        String accessToken = "access token";
+        String refreshToken = "refresh token";
+
+        when(jwtProvider.isAccessToken(eq(accessToken))).thenReturn(true);
+        when(jwtProvider.isExpired(eq(accessToken))).thenReturn(true);
+        when(jwtProvider.isRefreshToken(eq(refreshToken))).thenReturn(true);
+        when(jwtProvider.getUserId(eq(accessToken), eq(true))).thenReturn(1L);
+        when(jwtProvider.getUserId(eq(accessToken))).thenReturn(2L);
+
+        // Act & Assert
+        assertThrows(UnauthorizedException.class, () -> authService.reissueAccessToken(accessToken, refreshToken));
     }
 }

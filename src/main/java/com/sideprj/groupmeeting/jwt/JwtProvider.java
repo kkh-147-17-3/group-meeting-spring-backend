@@ -2,10 +2,9 @@ package com.sideprj.groupmeeting.jwt;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sideprj.groupmeeting.entity.User;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -17,7 +16,6 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.util.Base64;
-import java.util.Date;
 import java.util.Map;
 
 @Component
@@ -56,12 +54,20 @@ public class JwtProvider {
                 .getSubject());
     }
 
-    public String getLoginType(String token) {
-        return Jwts.parser()
-                .setSigningKey(secretKey)
-                .parseClaimsJws(token)
-                .getBody()
-                .get("loginType", String.class);
+    public Long getUserId(String token, boolean ignoreExpiration) {
+        try {
+            return Long.parseLong(Jwts.parser()
+                    .setSigningKey(secretKey)
+                    .parseClaimsJws(token)
+                    .getBody()
+                    .getSubject());
+        } catch (ExpiredJwtException e) {
+            if (ignoreExpiration){
+                return Long.parseLong(e.getClaims().getSubject());
+            } else {
+                throw e;
+            }
+        }
     }
 
     public boolean isExpired(String token) {
@@ -77,41 +83,31 @@ public class JwtProvider {
     }
 
     public boolean isRefreshToken(String token) {
-        return "refresh".equals(Jwts.parser()
-                .setSigningKey(secretKey)
-                .parseClaimsJws(token)
-                .getHeader()
-                .get("type"));
+        Claims claims;
+        try {
+            claims = Jwts.parser()
+                    .setSigningKey(secretKey)
+                    .parseClaimsJws(token)
+                    .getBody();
+        } catch (ExpiredJwtException e) {
+            claims = e.getClaims();
+        }
+        return "refresh".equals(claims.get("type"));
     }
 
     public boolean isAccessToken(String token) {
-        return "access".equals(Jwts.parser()
-                .setSigningKey(secretKey)
-                .parseClaimsJws(token)
-                .getBody()
-                .get("type"));
+        Claims claims;
+        try {
+            claims = Jwts.parser()
+                    .setSigningKey(secretKey)
+                    .parseClaimsJws(token)
+                    .getBody();
+        } catch (ExpiredJwtException e) {
+            claims = e.getClaims();
+        }
+        return "access".equals(claims.get("type"));
     }
 
-    public String createAccessToken(Long userId, User.SocialProvider  loginType) {
-        return createJwt(userId, loginType.name(), "access", accessTokenValidTime);
-    }
-
-    public String createRefreshToken(Long userId, User.SocialProvider loginType) {
-        return createJwt(userId, loginType.name(), "refresh", refreshTokenValidTime);
-    }
-
-    private String createJwt(Long userId, String loginType, String type, long tokenValidTime) {
-        var claims = Jwts.claims();
-        claims.put("userId", userId);
-        claims.put("loginType", loginType);
-        return Jwts.builder()
-                .setHeaderParam("type", type)
-                .setClaims(claims)
-                .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + tokenValidTime))
-                .signWith(SignatureAlgorithm.HS256, secretKey)
-                .compact();
-    }
 
     public Authentication getAuthentication(String token) {
         String userId = getUserId(token).toString();
@@ -130,7 +126,8 @@ public class JwtProvider {
             Base64.Decoder decoder = Base64.getUrlDecoder();
             String payload = new String(decoder.decode(chunks[1]));
 
-            TypeReference<Map<String, Object>> typeReference = new TypeReference<>() {};
+            TypeReference<Map<String, Object>> typeReference = new TypeReference<>() {
+            };
 
             return mapper.readValue(payload, typeReference);
         } catch (Exception e) {

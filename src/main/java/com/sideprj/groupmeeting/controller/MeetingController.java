@@ -3,19 +3,18 @@ package com.sideprj.groupmeeting.controller;
 import com.sideprj.groupmeeting.annotation.ApiLogging;
 import com.sideprj.groupmeeting.dto.DefaultUserDetails;
 import com.sideprj.groupmeeting.dto.meeting.*;
-import com.sideprj.groupmeeting.dto.user.GetUserDto;
 import com.sideprj.groupmeeting.exceptions.BadRequestException;
 import com.sideprj.groupmeeting.exceptions.ResourceNotFoundException;
 import com.sideprj.groupmeeting.exceptions.UnauthorizedException;
 import com.sideprj.groupmeeting.service.MeetingService;
-import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.UUID;
 
@@ -62,19 +61,21 @@ public class MeetingController {
     }
 
     @GetMapping("/plan")
-    @ApiLogging
-    public ResponseEntity<List<GetMeetingPlanDto>> getMyPlan(
-            @AuthenticationPrincipal DefaultUserDetails userDetails
-    ) {
-        var plans = meetingService.getMeetingPlansByParticipantUserId(userDetails.getId());
+    public ResponseEntity<List<GetMeetingPlanDto>> getMyPlans(
+            @AuthenticationPrincipal DefaultUserDetails userDetails,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyyMM") YearMonth yearMonth,
+            @RequestParam(required = false) Boolean closed
+            ) {
+        var plans = meetingService.getMeetingPlansByParticipantUserId(userDetails.getId(), page, yearMonth, closed);
         return ResponseEntity.ok(plans);
     }
 
-    @PostMapping("/{id}/member")
-    public ResponseEntity<List<GetMeetingMemberDto>> createMember(
+    @PostMapping("/{id}/join")
+    public ResponseEntity<GetMeetingMemberDto> joinMeetingAsMember(
             @AuthenticationPrincipal DefaultUserDetails userDetails,
             @PathVariable Long id,
-            @RequestParam CreateMeetingMemberDto dto
+            @RequestBody JoinMeetingAsMemberDto dto
     ) throws BadRequestException, ResourceNotFoundException, UnauthorizedException {
         dto.setMeetingId(id);
         var invite = meetingService.createMember(userDetails.getId(), dto);
@@ -97,13 +98,19 @@ public class MeetingController {
         return ResponseEntity.ok(meetings);
     }
 
-    @ApiLogging
-    @RequestMapping(value = {"/{id}", "/"}, method = RequestMethod.GET)
+    @GetMapping("/{id}")
     public ResponseEntity<GetMeetingDto> getMeetingInfo(
-            @PathVariable(value = "id", required = false) Long id,
-            @RequestParam(required = false) UUID inviteId
+            @PathVariable(value = "id", required = false) Long id
     ) throws ResourceNotFoundException {
-        var meeting = meetingService.findByIdAndInviteId(id, inviteId);
+        var meeting = meetingService.findById(id);
+        return ResponseEntity.ok(meeting);
+    }
+
+    @GetMapping("/invite-id/{inviteId}")
+    public ResponseEntity<GetMeetingDto> getMeetingInfoByInviteId(
+            @PathVariable UUID inviteId
+    ) throws ResourceNotFoundException {
+        var meeting = meetingService.findByInviteId(inviteId);
         return ResponseEntity.ok(meeting);
     }
 
@@ -127,6 +134,7 @@ public class MeetingController {
         var result = meetingService.createPlanParticipant(userDetails.getId(), id);
         return ResponseEntity.ok(result);
     }
+
 
     @DeleteMapping("/plan/{id}/join")
     public ResponseEntity<GetMeetingPlanDto> leaveMeetingPlan(

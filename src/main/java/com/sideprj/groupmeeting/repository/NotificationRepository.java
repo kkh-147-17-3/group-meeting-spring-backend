@@ -9,7 +9,7 @@ import java.util.List;
 
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
-    List<Notification> findByScheduledAtBeforeAndSentAtNull(LocalDateTime scheduledAt);
+    List<Notification> findByScheduledAtBeforeAndReadAtNotNullAndSentAtNull(LocalDateTime scheduledAt);
 
     List<Notification> findByUserIdAndSentAtIsNull(Long userId);
 }
