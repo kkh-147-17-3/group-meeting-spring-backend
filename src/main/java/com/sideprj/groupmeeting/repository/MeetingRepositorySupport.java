@@ -1,6 +1,7 @@
 package com.sideprj.groupmeeting.repository;
 
 import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.sideprj.groupmeeting.entity.meeting.*;
@@ -13,26 +14,26 @@ import java.util.UUID;
 
 @Repository
 public class MeetingRepositorySupport {
-    private final JPAQueryFactory queryFactory;
+    private final JPAQueryFactory qf;
 
     public MeetingRepositorySupport(JPAQueryFactory queryFactory) {
-        this.queryFactory = queryFactory;
+        this.qf = queryFactory;
     }
 
     public List<Meeting> findByDeletedFalseAndCreatorId(Long creatorId) {
         var meeting = QMeeting.meeting;
-        return queryFactory.selectFrom(meeting)
-                .leftJoin(meeting.members)
-                .fetchJoin()
-                .where(
-                        meeting.creator.id.eq(creatorId)
-                                .and(meeting.deleted.isFalse())
+        return qf.selectFrom(meeting)
+                 .leftJoin(meeting.members)
+                 .fetchJoin()
+                 .where(
+                         meeting.creator.id.eq(creatorId)
+                                           .and(meeting.deleted.isFalse())
 
-                )
-                .orderBy(
-                        meeting.createdAt.desc()
-                )
-                .fetch();
+                 )
+                 .orderBy(
+                         meeting.createdAt.desc()
+                 )
+                 .fetch();
     }
 
     public Meeting findByIdOrInviteId(Long meetingId, UUID inviteId) {
@@ -47,20 +48,25 @@ public class MeetingRepositorySupport {
         }
         if (inviteId != null) {
             whereCondition = whereCondition == null ? meetingInvite.id.eq(inviteId)
-                                                    : whereCondition.and(meetingInvite.id.eq(inviteId));
+                    : whereCondition.and(meetingInvite.id.eq(inviteId));
         }
-        return queryFactory.selectFrom(meeting)
-                .join(meeting.members)
-                .fetchJoin()
-                .innerJoin(meeting.invites, meetingInvite)
-                .where(whereCondition)
-                .orderBy(
-                        meeting.createdAt.desc()
-                )
-                .fetchOne();
+        return qf.selectFrom(meeting)
+                 .join(meeting.members)
+                 .fetchJoin()
+                 .innerJoin(meeting.invites, meetingInvite)
+                 .where(whereCondition)
+                 .orderBy(
+                         meeting.createdAt.desc()
+                 )
+                 .fetchOne();
     }
 
-    public List<MeetingPlan> findPlansByParticipantUserId(Long userId, Integer page, YearMonth yearMonth, Boolean closed) {
+    public List<MeetingPlan> findPlansByParticipantUserId(
+            Long userId,
+            Integer page,
+            YearMonth yearMonth,
+            Boolean closed
+    ) {
         var numInPage = 5;
         var offset = 5 * (page - 1);
         var meetingPlan = QMeetingPlan.meetingPlan;
@@ -68,39 +74,38 @@ public class MeetingRepositorySupport {
         BooleanExpression yearMonthFilter = null;
         BooleanExpression activeFilter = null;
 
-        if(yearMonth != null) {
-            LocalDateTime yearMonthStart = yearMonth.atDay(1).atTime(0,0,0);
-            LocalDateTime yearMonthEnd = yearMonth.atEndOfMonth().atTime(23,59,59);
+        if (yearMonth != null) {
+            LocalDateTime yearMonthStart = yearMonth.atDay(1).atTime(0, 0, 0);
+            LocalDateTime yearMonthEnd = yearMonth.atEndOfMonth().atTime(23, 59, 59);
             yearMonthFilter = meetingPlan.startAt.between(yearMonthStart, yearMonthEnd);
         }
 
-        if(closed != null){
+        if (closed != null) {
             var now = LocalDateTime.now();
             activeFilter = closed ? meetingPlan.startAt.before(now) : meetingPlan.startAt.after(now);
         }
 
 
-        return queryFactory.selectFrom(meetingPlan)
-                .innerJoin(meetingPlan.participants, meetingPlanParticipant)
-                .fetchJoin()
-                .where(meetingPlan.id
-                        .in(
-                                queryFactory.select(meetingPlan.id)
-                                        .from(meetingPlan)
-                                        .innerJoin(
-                                                meetingPlan.participants,
-                                                meetingPlanParticipant
-                                        )
-                                        .where(meetingPlanParticipant.user.id.eq(userId))
-                                        .fetch()
-                        )
-                        .and(activeFilter)
-                        .and(yearMonthFilter)
-                )
-                .orderBy(meetingPlan.startAt.asc())
-                .limit(numInPage)
-                .offset(offset)
-                .fetch();
+        return qf.selectFrom(meetingPlan)
+                 .innerJoin(meetingPlan.participants, meetingPlanParticipant)
+                 .fetchJoin()
+                 .where(meetingPlan.id
+                                .in(qf.select(meetingPlan.id)
+                                      .from(meetingPlan)
+                                      .innerJoin(
+                                              meetingPlan.participants,
+                                              meetingPlanParticipant
+                                      )
+                                      .where(meetingPlanParticipant.user.id.eq(userId))
+                                      .fetch()
+                                )
+                                .and(activeFilter)
+                                .and(yearMonthFilter)
+                 )
+                 .orderBy(meetingPlan.startAt.asc())
+                 .limit(numInPage)
+                 .offset(offset)
+                 .fetch();
     }
 
     public List<Meeting> findWhereNoPlansFound() {
@@ -110,14 +115,34 @@ public class MeetingRepositorySupport {
         var startAt = LocalDateTime.now().minusHours(1);
         var endAt = startAt.plusMinutes(10);
 
-        return queryFactory
+        return qf
                 .selectFrom(meeting)
                 .where(JPAExpressions
-                        .selectOne()
-                        .from(meetingPlan)
-                        .where(meetingPlan.meeting.id.eq(meeting.id))
-                        .notExists()
-                        .and(meeting.createdAt.between(startAt, endAt)))
+                               .selectOne()
+                               .from(meetingPlan)
+                               .where(meetingPlan.meeting.id.eq(meeting.id))
+                               .notExists()
+                               .and(meeting.createdAt.between(startAt, endAt)))
+                .fetch();
+    }
+
+    public List<MeetingPlan> findPlansNeedsWeatherToBeUpdated() {
+        QMeetingPlan mp = QMeetingPlan.meetingPlan;
+        var now = LocalDateTime.now();
+        return qf
+                .selectFrom(mp)
+                .where(mp.startAt.before(now.plusDays(5))
+                                 .and(mp.weatherUpdatedAt.isNull()
+                                     .or(mp.weatherUpdatedAt.before(now.minusDays(1))))
+                )
+                .orderBy(
+                        new CaseBuilder()
+                                .when(mp.weatherUpdatedAt.isNull())
+                                .then(1)
+                                .otherwise(2)
+                                .asc()
+                )
+                .limit(60)
                 .fetch();
     }
 }

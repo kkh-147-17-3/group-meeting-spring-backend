@@ -2,8 +2,8 @@ package com.sideprj.groupmeeting.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sideprj.groupmeeting.dto.GeoLocation;
-import com.sideprj.groupmeeting.dto.NotificationRequestResult;
 import com.sideprj.groupmeeting.dto.OpenWeatherResponse;
+import com.sideprj.groupmeeting.dto.WeatherInfo;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
 import org.jetbrains.annotations.NotNull;
@@ -12,6 +12,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.concurrent.CompletableFuture;
 
 @Service
@@ -30,6 +32,43 @@ public class OpenWeatherService {
     }
 
     @Async
+    public CompletableFuture<WeatherInfo> getClosestWeatherInfoFromDateTime(
+            GeoLocation geoLocation,
+            LocalDateTime dateTime
+    ) {
+        return getWeatherInfoByLocation(geoLocation).thenApply(response -> {
+            var weatherList = response.getList();
+            Float temperature = null;
+            Integer weatherId = null;
+            String weatherIcon = null;
+            for (var i = 0; i < weatherList.size() - 1; i++) {
+                ZoneId zoneId = ZoneId.systemDefault();
+                var before = weatherList.get(i);
+                var after = weatherList.get(i + 1);
+                var startAtTimestamp = dateTime.atZone(zoneId).toEpochSecond();
+                if (!(startAtTimestamp <= after.getDt() && startAtTimestamp >= before.getDt())) continue;
+
+                OpenWeatherResponse.WeatherList target;
+                if (Math.abs(startAtTimestamp - after.getDt()) > Math.abs(startAtTimestamp - before.getDt())) {
+                    target = before;
+                } else {
+                    target = after;
+                }
+
+                temperature = target.getMain().getTemp();
+                weatherId = target.getWeather().get(0).getId();
+                weatherIcon = target.getWeather().get(0).getIcon();
+            }
+
+            var info = new WeatherInfo(
+                    temperature,
+                    weatherId,
+                    weatherIcon
+            );
+            return weatherId == null ? null : info;
+        });
+    }
+
     public CompletableFuture<OpenWeatherResponse> getWeatherInfoByLocation(GeoLocation geoLocation) {
         CompletableFuture<OpenWeatherResponse> future = new CompletableFuture<>();
 
