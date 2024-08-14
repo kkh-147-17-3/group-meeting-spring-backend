@@ -69,6 +69,7 @@ public class User {
     }
 
     public static String getProfileImgSource(String key){
+        if (key == null) return null;
         return String.format("https://%s.s3.%s.amazonaws.com/%s", "meeting-sideproject", "ap-northeast-2", key);
     }
 }

@@ -1,5 +1,7 @@
 package com.sideprj.groupmeeting.service;
 
+import com.sideprj.groupmeeting.dto.GeoLocation;
+import com.sideprj.groupmeeting.dto.OpenWeatherResponse;
 import com.sideprj.groupmeeting.dto.meeting.*;
 import com.sideprj.groupmeeting.entity.Notification;
 import com.sideprj.groupmeeting.entity.meeting.*;
@@ -15,6 +17,7 @@ import jakarta.validation.Valid;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -37,6 +40,8 @@ public class MeetingService {
 
     private final NotificationRepository notificationRepository;
 
+    private final OpenWeatherService openWeatherService;
+
     private final MeetingMapper mapper;
 
     @PersistenceContext
@@ -51,7 +56,7 @@ public class MeetingService {
             MeetingInviteRepository meetingInviteRepository,
             MeetingRepositorySupport meetingRepositorySupport,
             MeetingPlanParticipantRepository meetingPlanParticipantRepository,
-            NotificationRepository notificationRepository, MeetingMapper mapper
+            NotificationRepository notificationRepository, OpenWeatherService openWeatherService, MeetingMapper mapper
     ) {
         this.meetingRepository = meetingRepository;
         this.userRepository = userRepository;
@@ -62,6 +67,7 @@ public class MeetingService {
         this.meetingRepositorySupport = meetingRepositorySupport;
         this.meetingPlanParticipantRepository = meetingPlanParticipantRepository;
         this.notificationRepository = notificationRepository;
+        this.openWeatherService = openWeatherService;
         this.mapper = mapper;
     }
 
@@ -89,7 +95,7 @@ public class MeetingService {
     public GetMeetingDto update(
             Long creatorId,
             @Valid UpdateMeetingDto dto
-    ) throws UnauthorizedException, IOException, ResourceNotFoundException {
+    ) throws UnauthorizedException, IOException, ResourceNotFoundException, BadRequestException {
         var meeting = meetingRepository.findById(dto.meetingId()).orElseThrow(ResourceNotFoundException::new);
         if (!Objects.equals(meeting.getCreator().getId(), creatorId)) {
             throw new UnauthorizedException();
@@ -119,7 +125,7 @@ public class MeetingService {
                 .findAny().orElseThrow(UnauthorizedException::new);
 
         LocalDateTime endAt = dto.getEndAt() == null ? dto.getStartAt()
-                .withHour(11)
+                .withHour(23)
                 .withMinute(59)
                 .withSecond(59)
                 .withNano(0) : dto.getEndAt();
@@ -144,7 +150,7 @@ public class MeetingService {
                 .build();
 
         meetingPlanParticipantRepository.save(participant);
-        var title = "%s 모임 약속 추가 알림".formatted(meeting.getName());
+        var title = "모임 약속 추가 알림";
         var message = "%s 님이 새로운 약속을 추가했어요. 약속 내용을 확인해주세요!".formatted(user.getNickname());
 
         var notifications = meeting.getMembers().stream()
@@ -161,6 +167,55 @@ public class MeetingService {
                 .toList();
 
         notificationRepository.saveAll(notifications);
+
+        if(dto.getStartAt().minusDays(5).isBefore(LocalDateTime.now())){
+            var future = openWeatherService.getWeatherInfoByLocation(new GeoLocation(
+                    dto.getLongitude(), dto.getLatitude()
+            ));
+
+            future.thenAcceptAsync(openWeatherResponse -> {
+                var weatherList = openWeatherResponse.getList();
+                Float temperature = null;
+                Integer weatherId = null;
+                String weatherIcon = null;
+                for(var i=0; i < weatherList.size() - 1; i++){
+                    ZoneId zoneId = ZoneId.systemDefault();
+                    var before = weatherList.get(i);
+                    var after = weatherList.get(i+1);
+                    var startAtTimestamp = dto.getStartAt().atZone(zoneId).toEpochSecond();
+                    if(!(startAtTimestamp <= after.getDt() && startAtTimestamp >= before.getDt())) continue;
+
+                    OpenWeatherResponse.WeatherList target;
+                    if(Math.abs(startAtTimestamp - after.getDt()) > Math.abs(startAtTimestamp - before.getDt())){
+                        target = before;
+                    } else {
+                        target = after;
+                    }
+
+                    temperature = target.getMain().getTemp();
+                    weatherId = target.getWeather().get(0).getId();
+                    weatherIcon = target.getWeather().get(0).getIcon();
+                }
+
+                if(temperature != null){
+                    meetingPlan.setTemperature(temperature);
+                }
+                if(weatherId != null){
+                    meetingPlan.setWeatherId(weatherId);
+                }
+                if(weatherIcon != null) {
+                    meetingPlan.setWeatherIcon(weatherIcon);
+                }
+                if(temperature != null){
+                    meetingPlan.setWeatherUpdatedAt(LocalDateTime.now());
+                }
+                meetingPlanRepository.save(meetingPlan);
+            }).exceptionally(t->{
+                t.printStackTrace();
+                return null;
+            });
+        }
+
 
         return mapper.toGetPlanDto(meetingPlan);
     }
@@ -258,14 +313,14 @@ public class MeetingService {
         var meeting = meetingRepository.findById(dto.getMeetingId()).orElseThrow(ResourceNotFoundException::new);
         var user = userRepository.findById(userId).orElseThrow(() -> new BadRequestException("존재하지 않는 사용자입니다."));
         var meetingInvite = meetingInviteRepository.findByIdAndExpiredAtAfter(dto.getInviteId(), LocalDateTime.now())
-                .orElseThrow(()->new BadRequestException("존재하지 않는 초대 코드입니다."));
+                .orElseThrow(() -> new BadRequestException("존재하지 않는 초대 코드입니다."));
 
-        if(meeting.getMembers().stream().anyMatch(m->m.getUser().getId().equals(userId))){
+        if (meeting.getMembers().stream().anyMatch(m -> m.getUser().getId().equals(userId))) {
             throw new BadRequestException("이미 참여한 사용자입니다.");
 
         }
 
-        if (!meetingInvite.getMeeting().getId().equals(dto.getMeetingId())){
+        if (!meetingInvite.getMeeting().getId().equals(dto.getMeetingId())) {
             throw new BadRequestException("존재하지 않는 초대코드 입니다.");
         }
 

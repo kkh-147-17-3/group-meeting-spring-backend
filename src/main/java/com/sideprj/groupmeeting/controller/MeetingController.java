@@ -43,7 +43,7 @@ public class MeetingController {
             @AuthenticationPrincipal DefaultUserDetails userDetails,
             @RequestParam MultipartFile image,
             @RequestParam String name
-    ) throws UnauthorizedException, IOException, ResourceNotFoundException {
+    ) throws UnauthorizedException, IOException, ResourceNotFoundException, BadRequestException {
         var dto = new UpdateMeetingDto(id, name, image);
         var meetingInfo = meetingService.update(userDetails.getId(), dto);
         return ResponseEntity.ok(meetingInfo);

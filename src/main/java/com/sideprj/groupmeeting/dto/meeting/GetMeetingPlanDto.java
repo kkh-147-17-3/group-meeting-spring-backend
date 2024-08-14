@@ -18,5 +18,9 @@ public record GetMeetingPlanDto(
         String detailAddress,
         BigDecimal longitude,
         BigDecimal latitude,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+
+        Float temperature,
+
+        String weatherIconUrl
 ){}

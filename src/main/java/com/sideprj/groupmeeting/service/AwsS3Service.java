@@ -1,6 +1,6 @@
 package com.sideprj.groupmeeting.service;
 
-import org.apache.coyote.BadRequestException;
+import com.sideprj.groupmeeting.exceptions.BadRequestException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -33,7 +33,7 @@ public class AwsS3Service {
         s3Client.deleteObject(deleteObjectRequest);
     }
 
-    public String uploadImage(String fileName, String bucketName, String keyPrefix, MultipartFile file) throws IOException {
+    public String uploadImage(String fileName, String bucketName, String keyPrefix, MultipartFile file) throws IOException, BadRequestException {
         fileName = (fileName == null) ? UUID.randomUUID().toString() : fileName;
         var contentType = file.getContentType();
         if (contentType == null || !contentType.startsWith("image")) {

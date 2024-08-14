@@ -43,6 +43,8 @@ public class Meeting extends BaseTimeEntity {
     private boolean deleted = false;
 
     public String getImageUrl(){
+        if(getMainImageName() == null) return null;
+
         return String.format(
                 "https://%s.s3.%s.amazonaws.com/%s",
                 "meeting-sideproject",

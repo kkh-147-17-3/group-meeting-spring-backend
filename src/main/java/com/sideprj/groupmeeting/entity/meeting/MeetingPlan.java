@@ -52,4 +52,22 @@ public class MeetingPlan extends BaseTimeEntity {
 
     @Column(nullable = false, precision = 11, scale = 8)
     private BigDecimal longitude;
+
+    @Column
+    private Float temperature;
+
+    @Column
+    private Integer weatherId;
+
+    @Column
+    private String weatherIcon;
+
+    @Column
+    private LocalDateTime weatherUpdatedAt;
+
+    public String getWeatherIconUrl(){
+        if(weatherIcon == null) return null;
+        String ICON_URL = "https://openweathermap.org/img/wn";
+        return  "%s/%s@2x.png".formatted(ICON_URL, weatherIcon);
+    }
 }

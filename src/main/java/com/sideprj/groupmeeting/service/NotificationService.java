@@ -15,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -90,6 +91,7 @@ public class NotificationService {
         notificationRepository.save(notification);
     }
 
+    @Async
     public CompletableFuture<NotificationRequestResult> sendPushNotification(
             NotificationRequest request,
             String jwtToken
