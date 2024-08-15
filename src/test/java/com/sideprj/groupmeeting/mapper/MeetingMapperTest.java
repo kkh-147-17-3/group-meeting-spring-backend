@@ -91,7 +91,7 @@ public class MeetingMapperTest {
         var dto = MeetingMapper.INSTANCE.toGetDto(meeting);
         assertEquals(meeting.getName(), dto.name());
         assertEquals(meeting.getCreator().getId(), dto.creatorId());
-        assertEquals(dto.creatorName(), meeting.getCreator().getNickname());
+        assertEquals(dto.creatorNickname(), meeting.getCreator().getNickname());
         assertEquals(dto.imageUrl(), meeting.getImageUrl());
         assertEquals(dto.createdAt(), meeting.getCreatedAt());
     }

@@ -9,7 +9,7 @@ public record GetMeetingDto(
         Long id,
         String name,
         Long creatorId,
-        String creatorName,
+        String creatorNickname,
         String imageUrl,
         List<GetMeetingMemberDto> members,
         LocalDateTime createdAt

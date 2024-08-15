@@ -29,7 +29,7 @@ public interface MeetingMapper {
 
     @Named("meetingToDto")
     @Mapping(source = "creator", target = "creatorId", qualifiedByName = "getUserId")
-    @Mapping(source = "creator", target = "creatorName", qualifiedByName = "getUserNickname")
+    @Mapping(source = "creator", target = "creatorNickname", qualifiedByName = "getUserNickname")
     GetMeetingDto toGetDto(Meeting meeting);
 
     @Named("planToDto")
