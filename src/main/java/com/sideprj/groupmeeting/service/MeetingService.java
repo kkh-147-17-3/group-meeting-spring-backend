@@ -325,8 +325,12 @@ public class MeetingService {
     }
 
     @Transactional
-    public GetMeetingDto findById(Long meetingId) throws ResourceNotFoundException {
+    public GetMeetingDto findByIdAndUserId(Long meetingId, Long userId) throws ResourceNotFoundException, UnauthorizedException {
         var meeting = meetingRepository.findById(meetingId).orElseThrow(ResourceNotFoundException::new);
+        if(meeting.getMembers().stream().noneMatch(member->member.getUser().getId().equals(userId))){
+            throw new UnauthorizedException("모임 참여자가 아닙니다.");
+        }
+
         return mapper.toGetDto(meeting);
     }
 

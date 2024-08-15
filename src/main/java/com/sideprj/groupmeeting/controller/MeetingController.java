@@ -100,9 +100,10 @@ public class MeetingController {
 
     @GetMapping("/{id}")
     public ResponseEntity<GetMeetingDto> getMeetingInfo(
-            @PathVariable(value = "id", required = false) Long id
-    ) throws ResourceNotFoundException {
-        var meeting = meetingService.findById(id);
+            @AuthenticationPrincipal DefaultUserDetails userDetails,
+            @PathVariable(value = "id") Long id
+    ) throws ResourceNotFoundException, UnauthorizedException {
+        var meeting = meetingService.findByIdAndUserId(id,userDetails.getId());
         return ResponseEntity.ok(meeting);
     }
 
