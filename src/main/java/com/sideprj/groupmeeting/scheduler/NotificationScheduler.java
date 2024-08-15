@@ -2,10 +2,7 @@ package com.sideprj.groupmeeting.scheduler;
 
 import com.sideprj.groupmeeting.dto.NotificationRequest;
 import com.sideprj.groupmeeting.entity.Notification;
-import com.sideprj.groupmeeting.repository.MeetingPlanRepository;
-import com.sideprj.groupmeeting.repository.MeetingRepositorySupport;
-import com.sideprj.groupmeeting.repository.NotificationRepository;
-import com.sideprj.groupmeeting.repository.UserRepository;
+import com.sideprj.groupmeeting.repository.*;
 import com.sideprj.groupmeeting.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import okhttp3.OkHttpClient;
@@ -23,6 +20,7 @@ import java.util.concurrent.CompletableFuture;
 public class NotificationScheduler {
 
     private final NotificationRepository notificationRepository;
+    private final NotificationRepositorySupport notificationRepositorySupport;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final MeetingRepositorySupport meetingRepositorySupport;
@@ -33,7 +31,7 @@ public class NotificationScheduler {
     @Scheduled(fixedDelay = 60000)
     @Transactional
     public void sendNotification() throws Exception {
-        var notifications = notificationRepository.findByScheduledAtBeforeAndReadAtNotNullAndSentAtNull(LocalDateTime.now());
+        var notifications = notificationRepositorySupport.findAllNeedToBeSentFromNow();
         var requests = notifications.stream()
                 .map(noti -> new NotificationRequest(
                         noti.getId(),
