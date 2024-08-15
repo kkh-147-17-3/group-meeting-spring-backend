@@ -18,13 +18,9 @@ import java.util.UUID;
 public class AwsS3Service {
 
     private final S3Client s3Client;
-    @Value("${aws.s3.access_key}")
-    private String AWS_S3_ACCESS_KEY;
-    @Value("${aws.s3.secret_access_key}")
-    private String AWS_S3_SECRET_ACCESS_KEY;
 
-    public AwsS3Service() {
-        this.s3Client = S3Client.builder().region(Region.of("ap-northeast-2")).credentialsProvider(() -> AwsBasicCredentials.create(AWS_S3_ACCESS_KEY, AWS_S3_SECRET_ACCESS_KEY)).build();
+    public AwsS3Service(S3Client s3Client) {
+        this.s3Client = s3Client;
     }
 
     public void deleteImage(String bucketName, String key) {
