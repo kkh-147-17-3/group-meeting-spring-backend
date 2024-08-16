@@ -1,5 +1,7 @@
 package com.sideprj.groupmeeting.entity;
 
+import com.sideprj.groupmeeting.entity.meeting.MeetingPlan;
+import com.sideprj.groupmeeting.entity.meeting.MeetingPlanParticipant;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -56,6 +58,9 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Notification> notifications;
 
+    @OneToMany(mappedBy = "user")
+    private List<MeetingPlanParticipant> meetingPlanParticipants;
+
     public enum SocialProvider {
         KAKAO, APPLE
     }
@@ -64,12 +69,32 @@ public class User {
         IOS, ANDROID
     }
 
-    public String getProfileImgUrl(){
+    public String getProfileImgUrl() {
         return getProfileImgSource(this.getProfileImgName());
     }
 
-    public static String getProfileImgSource(String key){
+    public static String getProfileImgSource(String key) {
         if (key == null) return null;
         return String.format("https://%s.s3.%s.amazonaws.com/%s", "meeting-sideproject", "ap-northeast-2", key);
+    }
+
+    public boolean isAbleToJoinMeetingPlan(MeetingPlan meetingPlan) {
+        if (meetingPlan == null) {
+            throw new NullPointerException();
+        }
+
+        return this.getMeetingPlanParticipants().stream()
+                .anyMatch(participant -> {
+                    var joinedMeetingPlanStartAt = participant.getMeetingPlan().getStartAt();
+                    var joinedMeetingPlanEndAt = participant.getMeetingPlan().getEndAt();
+                    joinedMeetingPlanEndAt = joinedMeetingPlanEndAt == null ? joinedMeetingPlanStartAt
+                            .withHour(23)
+                            .withMinute(59)
+                            .withSecond(59) : joinedMeetingPlanEndAt;
+
+                    return meetingPlan.getStartAt().isAfter(joinedMeetingPlanEndAt)
+                            || joinedMeetingPlanStartAt.isAfter(meetingPlan.getEndAt());
+
+                });
     }
 }

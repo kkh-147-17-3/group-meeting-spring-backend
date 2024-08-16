@@ -122,18 +122,12 @@ public class MeetingService {
                .filter(member -> member.getUser().getId().equals(user.getId()))
                .findAny().orElseThrow(UnauthorizedException::new);
 
-        LocalDateTime endAt = dto.getEndAt() == null ? dto.getStartAt()
-                                                          .withHour(23)
-                                                          .withMinute(59)
-                                                          .withSecond(59)
-                                                          .withNano(0) : dto.getEndAt();
-
         var meetingPlan = MeetingPlan.builder()
                                      .meeting(meeting)
                                      .creator(user)
                                      .name(dto.getName())
                                      .startAt(dto.getStartAt())
-                                     .endAt(endAt)
+                                     .endAt(dto.getEndAt())
                                      .address(dto.getAddress())
                                      .detailAddress(dto.getDetailAddress())
                                      .longitude(dto.getLongitude())
