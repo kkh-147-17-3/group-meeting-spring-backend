@@ -124,6 +124,16 @@ public class MeetingController {
         return ResponseEntity.ok(meeting);
     }
 
+    @GetMapping("/{id}/plan")
+    public ResponseEntity<List<GetMeetingPlanDto>> getPlansOfMeeting(
+            @PathVariable Long id,
+            @AuthenticationPrincipal DefaultUserDetails userDetails
+    ) throws UnauthorizedException, ResourceNotFoundException {
+        List<GetMeetingPlanDto> plans = meetingService.findPlanByMeetingId(userDetails.getId(), id);
+
+        return ResponseEntity.ok(plans);
+    }
+
     @ApiLogging
     @PatchMapping("/plan/{id}")
     public ResponseEntity<GetMeetingPlanDto> updatePlan(

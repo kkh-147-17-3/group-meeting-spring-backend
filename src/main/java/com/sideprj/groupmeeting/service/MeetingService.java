@@ -493,4 +493,14 @@ public class MeetingService {
         comment.setDeletedAt(LocalDateTime.now());
         meetingPlanCommentRepository.save(comment);
     }
+
+    @Transactional
+    public List<GetMeetingPlanDto> findPlanByMeetingId(Long userId, Long meetingId) throws ResourceNotFoundException, UnauthorizedException {
+        var meeting = meetingRepository.findById(meetingId).orElseThrow(ResourceNotFoundException::new);
+        if(meeting.getMembers().stream().noneMatch(member->member.getUser().getId().equals(userId))){
+            throw new UnauthorizedException();
+        }
+
+        return mapper.toGetPlanDtos(meeting.getPlans());
+    }
 }
