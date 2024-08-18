@@ -61,7 +61,7 @@ public class MeetingController {
     }
 
     @GetMapping("/plan")
-    public ResponseEntity<List<GetMeetingPlanDto>> getMyPlans(
+    public ResponseEntity<List<GetMeetingPlanWithMeetingInfoDto>> getMyPlans(
             @AuthenticationPrincipal DefaultUserDetails userDetails,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyyMM") YearMonth yearMonth,

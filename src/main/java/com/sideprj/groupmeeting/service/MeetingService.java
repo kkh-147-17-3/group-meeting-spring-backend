@@ -316,7 +316,7 @@ public class MeetingService {
 
     @Transactional
     public List<GetMeetingDto> getActiveMeetingsByUserId(Long userId) {
-        var meetings = meetingRepositorySupport.findByDeletedFalseAndCreatorId(userId);
+        var meetings = meetingRepositorySupport.findByDeletedFalseAndUserId(userId);
         return mapper.toGetDtos(meetings);
     }
 
@@ -340,7 +340,7 @@ public class MeetingService {
     }
 
     @Transactional
-    public List<GetMeetingPlanDto> getMeetingPlansByParticipantUserId(
+    public List<GetMeetingPlanWithMeetingInfoDto> getMeetingPlansByParticipantUserId(
             Long userId,
             Integer page,
             YearMonth yearMonth,
@@ -348,7 +348,7 @@ public class MeetingService {
     ) {
         page = page != null ? page : 1;
         var meetingPlans = meetingRepositorySupport.findPlansByParticipantUserId(userId, page, yearMonth, closed);
-        return mapper.toGetPlanDtos(meetingPlans);
+        return mapper.toGetPlanWithMeeitngInfoDtos(meetingPlans);
     }
 
 

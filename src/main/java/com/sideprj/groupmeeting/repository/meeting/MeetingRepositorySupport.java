@@ -20,14 +20,20 @@ public class MeetingRepositorySupport {
         this.qf = queryFactory;
     }
 
-    public List<Meeting> findByDeletedFalseAndCreatorId(Long creatorId) {
+    public List<Meeting> findByDeletedFalseAndUserId(Long creatorId) {
         var meeting = QMeeting.meeting;
+        var member = QMeetingMember.meetingMember;
         return qf.selectFrom(meeting)
                  .leftJoin(meeting.members)
                  .fetchJoin()
                  .where(
-                         meeting.creator.id.eq(creatorId)
-                                           .and(meeting.deleted.isFalse())
+                         meeting.deleted.isFalse()
+                                        .and(JPAExpressions
+                                                     .selectFrom(member)
+                                                     .where(member.joinedMeeting.id.eq(meeting.id)
+                                                                                   .and(member.user.id.eq(creatorId)))
+                                                     .exists()
+                                        )
 
                  )
                  .orderBy(
@@ -133,7 +139,7 @@ public class MeetingRepositorySupport {
                 .selectFrom(mp)
                 .where(mp.startAt.before(now.plusDays(5))
                                  .and(mp.weatherUpdatedAt.isNull()
-                                     .or(mp.weatherUpdatedAt.before(now.minusDays(1))))
+                                                         .or(mp.weatherUpdatedAt.before(now.minusDays(1))))
                 )
                 .orderBy(
                         new CaseBuilder()

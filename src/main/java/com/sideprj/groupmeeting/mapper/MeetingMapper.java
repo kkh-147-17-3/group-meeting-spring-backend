@@ -42,6 +42,15 @@ public interface MeetingMapper {
     @IterableMapping(qualifiedByName = "planWithoutCommentsToDto")
     List<GetMeetingPlanDto> toGetPlanDtos(List<MeetingPlan> meetingPlan);
 
+    @Named("planWithMeetingInfoToDto")
+    @Mapping(target = "activeComments", ignore = true)
+    @Mapping(source = "meeting.id", target = "meetingId")
+    @Mapping(source = "meeting.name", target = "meetingName")
+    GetMeetingPlanWithMeetingInfoDto toGetPlanWithMeeitngInfoDto(MeetingPlan meetingPlan);
+
+    @IterableMapping(qualifiedByName = "planWithMeetingInfoToDto")
+    List<GetMeetingPlanWithMeetingInfoDto> toGetPlanWithMeeitngInfoDtos(List<MeetingPlan> meetingPlan);
+
 
     @Named("memberToDto")
     @Mapping(source = "user", target = "userId", qualifiedByName = "getUserId")
