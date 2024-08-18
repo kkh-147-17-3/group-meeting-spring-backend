@@ -19,8 +19,7 @@ public record GetMeetingPlanDto(
         BigDecimal longitude,
         BigDecimal latitude,
         LocalDateTime createdAt,
-
+        List<GetMeetingPlanCommentDto> activeComments,
         Float temperature,
-
         String weatherIconUrl
 ){}

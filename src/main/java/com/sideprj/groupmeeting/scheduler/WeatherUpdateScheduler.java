@@ -1,17 +1,14 @@
 package com.sideprj.groupmeeting.scheduler;
 
 import com.sideprj.groupmeeting.dto.GeoLocation;
-import com.sideprj.groupmeeting.dto.OpenWeatherResponse;
-import com.sideprj.groupmeeting.dto.WeatherInfo;
-import com.sideprj.groupmeeting.repository.MeetingPlanRepository;
-import com.sideprj.groupmeeting.repository.MeetingRepositorySupport;
+import com.sideprj.groupmeeting.repository.meeting.MeetingPlanRepository;
+import com.sideprj.groupmeeting.repository.meeting.MeetingRepositorySupport;
 import com.sideprj.groupmeeting.service.OpenWeatherService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
-import java.util.concurrent.CompletableFuture;
 
 @Component
 @RequiredArgsConstructor

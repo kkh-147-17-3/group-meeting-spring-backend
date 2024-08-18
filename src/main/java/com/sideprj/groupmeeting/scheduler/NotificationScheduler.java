@@ -3,6 +3,8 @@ package com.sideprj.groupmeeting.scheduler;
 import com.sideprj.groupmeeting.dto.NotificationRequest;
 import com.sideprj.groupmeeting.entity.Notification;
 import com.sideprj.groupmeeting.repository.*;
+import com.sideprj.groupmeeting.repository.meeting.MeetingPlanRepository;
+import com.sideprj.groupmeeting.repository.meeting.MeetingRepositorySupport;
 import com.sideprj.groupmeeting.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import okhttp3.OkHttpClient;

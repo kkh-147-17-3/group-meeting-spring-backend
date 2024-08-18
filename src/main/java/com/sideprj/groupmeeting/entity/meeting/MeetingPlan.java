@@ -8,6 +8,7 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Entity
 @Getter
@@ -30,15 +31,16 @@ public class MeetingPlan extends BaseTimeEntity {
     @OneToMany(mappedBy = "meetingPlan", cascade = CascadeType.ALL)
     private List<MeetingPlanParticipant> participants;
 
+    @OneToMany(mappedBy = "meetingPlan", cascade = CascadeType.ALL)
+    private List<MeetingPlanComment> comments;
+
     @Column(nullable = false)
     private String name;
 
     @Column(nullable = false)
-    @Temporal(TemporalType.TIMESTAMP)
     private LocalDateTime startAt;
 
     @Column(nullable = false)
-    @Temporal(TemporalType.TIMESTAMP)
     private LocalDateTime endAt;
 
     @Column(nullable = false)
@@ -69,5 +71,12 @@ public class MeetingPlan extends BaseTimeEntity {
         if(weatherIcon == null) return null;
         String ICON_URL = "https://openweathermap.org/img/wn";
         return  "%s/%s@2x.png".formatted(ICON_URL, weatherIcon);
+    }
+
+    @Transient
+    public List<MeetingPlanComment> getActiveComments() {
+        return this.comments.stream()
+                            .filter(comment -> comment.getDeletedAt() == null)
+                            .toList();
     }
 }

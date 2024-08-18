@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.security.PrivateKey;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -174,21 +175,40 @@ public class NotificationService {
     public List<CompletableFuture<NotificationRequestResult>> sendMultipleNotifications(List<NotificationRequest> requests) throws Exception {
         String jwtToken = AppleJwtTokenUtil.generateToken();
 
+        var iterator = requests.iterator();
+        var notificationPackage = new LinkedList<NotificationRequest>();
+        var notificationResults = new LinkedList<CompletableFuture<NotificationRequestResult>>();
+        while (iterator.hasNext()){
+            var currRequest = (NotificationRequest) iterator.next();
+            notificationPackage.add(currRequest);
+            if(notificationPackage.size() == 200) {
+                var results = requests.stream()
+                        .map((request) -> sendPushNotification(request, jwtToken))
+                        .toList();
+                notificationResults.addAll(results);
+                notificationPackage = new LinkedList<>();
+            }
+        }
+        if (!notificationPackage.isEmpty()){
+            var results = requests.stream()
+                                  .map((request) -> sendPushNotification(request, jwtToken))
+                                  .toList();
+            notificationResults.addAll(results);
+        }
+
         // Send notifications asynchronously to all device tokens
-        return requests.stream()
-                       .map((request) -> sendPushNotification(request, jwtToken))
-                       .toList();
+        return notificationResults;
     }
 
     @Transactional
     public int updateAllUnreadAsRead(Long userId) {
         var notifications = notificationRepository.findByUserIdAndSentAtIsNull(userId);
-        if(notifications.isEmpty()) {
+        if (notifications.isEmpty()) {
             return 0;
         }
         var user = notifications.get(0).getUser();
         user.setBadgeCount(0);
-        notifications.forEach(noti->noti.setReadAt(LocalDateTime.now()));
+        notifications.forEach(noti -> noti.setReadAt(LocalDateTime.now()));
         userRepository.save(user);
         notificationRepository.saveAll(notifications);
         return notifications.size();

@@ -32,10 +32,14 @@ public interface MeetingMapper {
     @Mapping(source = "creator", target = "creatorNickname", qualifiedByName = "getUserNickname")
     GetMeetingDto toGetDto(Meeting meeting);
 
-    @Named("planToDto")
     GetMeetingPlanDto toGetPlanDto(MeetingPlan meetingPlan);
 
-    @IterableMapping(qualifiedByName = "planToDto")
+    @Named("planWithoutCommentsToDto")
+    @Mapping(target = "activeComments", ignore = true)
+    GetMeetingPlanDto toGetPlanWithoutCommentsDto(MeetingPlan meetingPlan);
+
+
+    @IterableMapping(qualifiedByName = "planWithoutCommentsToDto")
     List<GetMeetingPlanDto> toGetPlanDtos(List<MeetingPlan> meetingPlan);
 
 
@@ -57,4 +61,10 @@ public interface MeetingMapper {
 
     @IterableMapping(qualifiedByName = "meetingToDto")
     List<GetMeetingDto> toGetDtos(List<Meeting> meetings);
+
+
+    @Mapping(source = "creator.id", target = "creatorId")
+    @Mapping(source = "creator.nickname", target = "creatorNickname")
+    @Mapping(source = "creator.profileImgUrl", target = "creatorProfileImgUrl")
+    GetMeetingPlanCommentDto toGetPlanCommentDto(MeetingPlanComment comment);
 }

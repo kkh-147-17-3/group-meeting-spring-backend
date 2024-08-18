@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -19,6 +20,8 @@ public class MeetingMapperTest {
     private MeetingPlanParticipant meetingPlanParticipant;
 
     private MeetingInvite meetingInvite;
+
+    private MeetingPlanComment meetingPlanComment;
 
     @BeforeEach
     void setup() {
@@ -59,6 +62,12 @@ public class MeetingMapperTest {
                 .meeting(meeting)
                 .expiredAt(now.plusHours(10))
                 .build();
+        meetingPlanComment = MeetingPlanComment.builder()
+                .content("test213")
+                .creator(user)
+                .meetingPlan(meetingPlan)
+                .build();
+        meetingPlan.setComments(List.of(meetingPlanComment));
     }
 
 

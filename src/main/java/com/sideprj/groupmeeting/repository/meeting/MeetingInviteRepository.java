@@ -1,4 +1,4 @@
-package com.sideprj.groupmeeting.repository;
+package com.sideprj.groupmeeting.repository.meeting;
 
 import com.sideprj.groupmeeting.entity.meeting.MeetingInvite;
 import org.springframework.data.jpa.repository.JpaRepository;

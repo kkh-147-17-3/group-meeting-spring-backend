@@ -1,4 +1,4 @@
-package com.sideprj.groupmeeting.repository;
+package com.sideprj.groupmeeting.repository.meeting;
 
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.CaseBuilder;

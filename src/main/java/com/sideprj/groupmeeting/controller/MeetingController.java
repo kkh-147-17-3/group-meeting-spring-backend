@@ -107,6 +107,15 @@ public class MeetingController {
         return ResponseEntity.ok(meeting);
     }
 
+    @GetMapping("/plan/{id}")
+    public ResponseEntity<GetMeetingPlanDto> getMeetingPlanInfo(
+            @AuthenticationPrincipal DefaultUserDetails userDetails,
+            @PathVariable(value = "id") Long id
+    ) throws ResourceNotFoundException, UnauthorizedException {
+        var meeting = meetingService.findPlanById(userDetails.getId(), id);
+        return ResponseEntity.ok(meeting);
+    }
+
     @GetMapping("/invite-id/{inviteId}")
     public ResponseEntity<GetMeetingDto> getMeetingInfoByInviteId(
             @PathVariable UUID inviteId
@@ -144,5 +153,35 @@ public class MeetingController {
     ) throws BadRequestException, ResourceNotFoundException {
         var result = meetingService.deletePlanParticipant(userDetails.getId(), id);
         return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/plan/{id}/comment")
+    public ResponseEntity<GetMeetingPlanCommentDto> createMeetingPlanComment(
+            @AuthenticationPrincipal DefaultUserDetails userDetails,
+            @PathVariable Long id,
+            @RequestBody CreateMeetingPlanCommentDto dto
+    ) throws BadRequestException, ResourceNotFoundException, UnauthorizedException {
+        var result = meetingService.createPlanComment(userDetails.getId(), id, dto.content());
+        return ResponseEntity.ok(result);
+    }
+
+    @PatchMapping("/plan/comment/{id}")
+    public ResponseEntity<GetMeetingPlanCommentDto> updateMeetingPlanComment(
+            @AuthenticationPrincipal DefaultUserDetails userDetails,
+            @PathVariable Long id,
+            @RequestBody CreateMeetingPlanCommentDto dto
+    ) throws BadRequestException, ResourceNotFoundException, UnauthorizedException {
+        var result = meetingService.updateMeetingPlanComment(userDetails.getId(), id, dto.content());
+        return ResponseEntity.ok(result);
+    }
+
+    @DeleteMapping("/plan/comment/{id}")
+    public ResponseEntity<Void> deleteMeetingPlanComment(
+            @AuthenticationPrincipal DefaultUserDetails userDetails,
+            @PathVariable Long id,
+            @RequestBody CreateMeetingPlanCommentDto dto
+    ) throws ResourceNotFoundException, UnauthorizedException {
+        meetingService.deleteMeetingPlanComment(userDetails.getId(), id);
+        return ResponseEntity.ok().build();
     }
 }

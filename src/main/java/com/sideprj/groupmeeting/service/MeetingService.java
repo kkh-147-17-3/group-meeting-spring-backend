@@ -9,6 +9,7 @@ import com.sideprj.groupmeeting.exceptions.ResourceNotFoundException;
 import com.sideprj.groupmeeting.exceptions.UnauthorizedException;
 import com.sideprj.groupmeeting.mapper.MeetingMapper;
 import com.sideprj.groupmeeting.repository.*;
+import com.sideprj.groupmeeting.repository.meeting.*;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
@@ -32,7 +33,7 @@ public class MeetingService {
     private final MeetingMemberRepository meetingMemberRepository;
     private final AwsS3Service s3Service;
     private final MeetingInviteRepository meetingInviteRepository;
-
+    private final MeetingPlanCommentRepository meetingPlanCommentRepository;
     private final MeetingPlanParticipantRepository meetingPlanParticipantRepository;
     private final MeetingRepositorySupport meetingRepositorySupport;
 
@@ -51,7 +52,7 @@ public class MeetingService {
             AwsS3Service s3Service,
             MeetingPlanRepository meetingPlanRepository,
             MeetingMemberRepository meetingMemberRepository,
-            MeetingInviteRepository meetingInviteRepository,
+            MeetingInviteRepository meetingInviteRepository, MeetingPlanCommentRepository meetingPlanCommentRepository,
             MeetingRepositorySupport meetingRepositorySupport,
             MeetingPlanParticipantRepository meetingPlanParticipantRepository,
             NotificationRepository notificationRepository, OpenWeatherService openWeatherService, MeetingMapper mapper
@@ -62,6 +63,7 @@ public class MeetingService {
         this.meetingPlanRepository = meetingPlanRepository;
         this.meetingMemberRepository = meetingMemberRepository;
         this.meetingInviteRepository = meetingInviteRepository;
+        this.meetingPlanCommentRepository = meetingPlanCommentRepository;
         this.meetingRepositorySupport = meetingRepositorySupport;
         this.meetingPlanParticipantRepository = meetingPlanParticipantRepository;
         this.notificationRepository = notificationRepository;
@@ -355,16 +357,13 @@ public class MeetingService {
             Long userId,
             Long planId
     ) throws ResourceNotFoundException, BadRequestException {
-        var meetingPlan = meetingPlanRepository.findById(planId).orElseThrow(ResourceNotFoundException::new);
-
-        var isNotJoinedYet = meetingPlan.getParticipants()
-                                        .stream()
-                                        .filter(participant -> participant.getUser().getId().equals(userId))
-                                        .findAny().isEmpty();
-
-        if (!isNotJoinedYet) {
+        var isUserJoined = checkUserJoined(userId, planId);
+        if (isUserJoined) {
             throw new BadRequestException("이미 참여한 사용자입니다.");
         }
+
+        var meetingPlan = meetingPlanRepository.findById(planId).orElseThrow(ResourceNotFoundException::new);
+
         var user = userRepository.findById(userId).orElseThrow(() -> new BadRequestException("존재하지 않는 사용자입니다."));
 
         var meetingPlanParticipant = MeetingPlanParticipant.builder()
@@ -432,5 +431,66 @@ public class MeetingService {
 
         notificationRepository.saveAll(notifications);
         return mapper.toGetPlanDto(meetingPlan);
+    }
+
+    @Transactional
+    public GetMeetingPlanCommentDto createPlanComment(Long userId, Long meetingPlanId, String content) throws ResourceNotFoundException, UnauthorizedException, BadRequestException {
+        var isUserJoined = checkUserJoined(userId, meetingPlanId);
+        if(!isUserJoined){
+            throw new UnauthorizedException();
+        }
+
+        if(content.isBlank()){
+            throw new BadRequestException("내용은 공백이 될 수 없습니다.");
+        }
+
+        var user = userRepository.findById(userId).orElseThrow(()->new BadRequestException("존재하지 않는 사용자"));
+        var meetingPlan = meetingPlanRepository.findById(meetingPlanId).orElseThrow(ResourceNotFoundException::new);
+        var meetingPlanComment = MeetingPlanComment.builder()
+                .meetingPlan(meetingPlan)
+                .creator(user)
+                .content(content).build();
+        meetingPlanComment = meetingPlanCommentRepository.save(meetingPlanComment);
+        return mapper.toGetPlanCommentDto(meetingPlanComment);
+    }
+
+    @Transactional
+    public GetMeetingPlanDto findPlanById(Long userId, Long meetingPlanId) throws ResourceNotFoundException, UnauthorizedException {
+        var isUserJoined = checkUserJoined(userId, meetingPlanId);
+        if(!isUserJoined) throw new UnauthorizedException();
+
+        var meetingPlan = meetingPlanRepository.findById(meetingPlanId).orElseThrow(ResourceNotFoundException::new);
+        return mapper.toGetPlanDto(meetingPlan);
+    }
+
+    private boolean checkUserJoined(Long userId, Long meetingPlanId) throws ResourceNotFoundException {
+        var meetingPlan = meetingPlanRepository.findById(meetingPlanId).orElseThrow(ResourceNotFoundException::new);
+
+        return meetingPlan.getParticipants()
+                   .stream()
+                   .anyMatch(participant -> participant.getUser().getId().equals(userId));
+    }
+
+    @Transactional
+    public GetMeetingPlanCommentDto updateMeetingPlanComment(Long userId, Long commentId, String content) throws ResourceNotFoundException, UnauthorizedException {
+        var comment = meetingPlanCommentRepository.findById(commentId).orElseThrow(ResourceNotFoundException::new);
+        if(!comment.getCreator().getId().equals(userId)){
+            throw new UnauthorizedException();
+        }
+
+        comment.setContent(content);
+        meetingPlanCommentRepository.save(comment);
+        return mapper.toGetPlanCommentDto(comment);
+    }
+
+    @Transactional
+    public void deleteMeetingPlanComment(Long userId, Long commentId) throws ResourceNotFoundException, UnauthorizedException {
+        var comment = meetingPlanCommentRepository.findByIdAndDeletedAtIsNull(commentId).orElseThrow(ResourceNotFoundException::new);
+        if(!comment.getCreator().getId().equals(userId)){
+            throw new UnauthorizedException();
+        }
+
+        comment.setDeletedAt(LocalDateTime.now());
+        meetingPlanCommentRepository.save(comment);
     }
 }
