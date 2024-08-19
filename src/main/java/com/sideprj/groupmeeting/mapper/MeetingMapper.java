@@ -27,6 +27,13 @@ public interface MeetingMapper {
         return user.getNickname();
     }
 
+    @Mapping(source = "meeting.id", target = "id")
+    @Mapping(source = "meeting.name", target = "name")
+    @Mapping(source = "meeting.createdAt", target = "createdAt")
+    @Mapping(source = "meeting.creator", target = "creatorId", qualifiedByName = "getUserId")
+    @Mapping(source = "meeting.creator", target = "creatorNickname", qualifiedByName = "getUserNickname")
+    GetMeetingDetailDto toGetDetailDto(Meeting meeting, MeetingPlan latestActivePlan, MeetingPlan latestClosedPlan);
+
     @Named("meetingToDto")
     @Mapping(source = "creator", target = "creatorId", qualifiedByName = "getUserId")
     @Mapping(source = "creator", target = "creatorNickname", qualifiedByName = "getUserNickname")

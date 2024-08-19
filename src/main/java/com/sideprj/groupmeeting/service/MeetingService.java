@@ -321,13 +321,15 @@ public class MeetingService {
     }
 
     @Transactional
-    public GetMeetingDto findByIdAndUserId(Long meetingId, Long userId) throws ResourceNotFoundException, UnauthorizedException {
+    public GetMeetingDetailDto findByIdAndUserId(Long meetingId, Long userId) throws ResourceNotFoundException, UnauthorizedException {
         var meeting = meetingRepository.findById(meetingId).orElseThrow(ResourceNotFoundException::new);
         if(meeting.getMembers().stream().noneMatch(member->member.getUser().getId().equals(userId))){
             throw new UnauthorizedException("모임 참여자가 아닙니다.");
         }
+        var latestActivePlan = meetingRepositorySupport.findLatestPlanByMeetingIdAndClosed(meeting.getId(), false);
+        var latestClosedPlan = meetingRepositorySupport.findLatestPlanByMeetingIdAndClosed(meeting.getId(), true);
 
-        return mapper.toGetDto(meeting);
+        return mapper.toGetDetailDto(meeting,latestActivePlan,latestClosedPlan);
     }
 
     @Transactional

@@ -151,4 +151,15 @@ public class MeetingRepositorySupport {
                 .limit(60)
                 .fetch();
     }
+
+    public MeetingPlan findLatestPlanByMeetingIdAndClosed(Long meetingId, boolean closed) {
+        QMeetingPlan mp = QMeetingPlan.meetingPlan;
+        var now = LocalDateTime.now();
+        var condition = closed ? mp.endAt.before(now) : mp.endAt.isNull().and(mp.endAt.after(now));
+        return qf
+                .selectFrom(mp)
+                .where(mp.meeting.id.eq(meetingId).and(condition))
+                .orderBy(mp.startAt.desc())
+                .fetchFirst();
+    }
 }

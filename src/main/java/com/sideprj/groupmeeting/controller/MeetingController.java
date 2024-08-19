@@ -99,7 +99,7 @@ public class MeetingController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<GetMeetingDto> getMeetingInfo(
+    public ResponseEntity<GetMeetingDetailDto> getMeetingInfo(
             @AuthenticationPrincipal DefaultUserDetails userDetails,
             @PathVariable(value = "id") Long id
     ) throws ResourceNotFoundException, UnauthorizedException {
