@@ -1,5 +1,6 @@
 package com.sideprj.groupmeeting.entity;
 
+import com.sideprj.groupmeeting.entity.meeting.Meeting;
 import com.sideprj.groupmeeting.entity.meeting.MeetingPlan;
 import com.sideprj.groupmeeting.entity.meeting.MeetingPlanParticipant;
 import jakarta.persistence.*;
@@ -76,6 +77,24 @@ public class User {
     public static String getProfileImgSource(String key) {
         if (key == null) return null;
         return String.format("https://%s.s3.%s.amazonaws.com/%s", "meeting-sideproject", "ap-northeast-2", key);
+    }
+
+    public boolean hasJoinedMeetingPlan(MeetingPlan meetingPlan) {
+        if (meetingPlan == null) {
+            throw new NullPointerException();
+        }
+
+        return this.meetingPlanParticipants.stream()
+                .anyMatch(participant -> participant.getMeetingPlan().getId().equals(meetingPlan.getId()));
+    }
+
+    public boolean hasJoinedMeeting(Meeting meeting) {
+        if (meeting == null) {
+            throw new NullPointerException();
+        }
+
+        return meeting.getMembers().stream()
+                .anyMatch(member -> member.getUser().getId().equals(id));
     }
 
     public boolean isAbleToJoinMeetingPlan(MeetingPlan meetingPlan) {

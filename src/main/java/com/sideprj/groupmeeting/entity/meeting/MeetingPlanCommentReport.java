@@ -14,23 +14,23 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class MeetingPlanComment extends BaseTimeEntity {
+public class MeetingPlanCommentReport extends BaseTimeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne
-    private User creator;
+    private User reporter;
 
     @ManyToOne
-    private MeetingPlanParticipant participant;
+    private MeetingPlanComment comment;
+
+    @Column
+    private String originalContents;
 
     @ManyToOne
-    private MeetingPlan meetingPlan;
+    private User subject ;
 
     @Column
-    private String contents;
-
-    @Column
-    private LocalDateTime deletedAt;
+    private String reasons;
 }

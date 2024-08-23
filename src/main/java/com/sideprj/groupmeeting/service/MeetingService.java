@@ -8,7 +8,8 @@ import com.sideprj.groupmeeting.exceptions.BadRequestException;
 import com.sideprj.groupmeeting.exceptions.ResourceNotFoundException;
 import com.sideprj.groupmeeting.exceptions.UnauthorizedException;
 import com.sideprj.groupmeeting.mapper.MeetingMapper;
-import com.sideprj.groupmeeting.repository.*;
+import com.sideprj.groupmeeting.repository.NotificationRepository;
+import com.sideprj.groupmeeting.repository.UserRepository;
 import com.sideprj.groupmeeting.repository.meeting.*;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -21,6 +22,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.ZoneId;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -45,6 +47,9 @@ public class MeetingService {
 
     @PersistenceContext
     private EntityManager entityManager;
+    private final MeetingPlanReviewRepository meetingPlanReviewRepository;
+    private final MeetingPlanCommentReportRepository meetingPlanCommentReportRepository;
+    private final MeetingPlanReviewImageRepository meetingPlanReviewImageRepository;
 
     public MeetingService(
             MeetingRepository meetingRepository,
@@ -52,10 +57,15 @@ public class MeetingService {
             AwsS3Service s3Service,
             MeetingPlanRepository meetingPlanRepository,
             MeetingMemberRepository meetingMemberRepository,
-            MeetingInviteRepository meetingInviteRepository, MeetingPlanCommentRepository meetingPlanCommentRepository,
+            MeetingInviteRepository meetingInviteRepository,
+            MeetingPlanCommentRepository meetingPlanCommentRepository,
             MeetingRepositorySupport meetingRepositorySupport,
             MeetingPlanParticipantRepository meetingPlanParticipantRepository,
-            NotificationRepository notificationRepository, OpenWeatherService openWeatherService, MeetingMapper mapper
+            NotificationRepository notificationRepository,
+            OpenWeatherService openWeatherService,
+            MeetingMapper mapper,
+            MeetingPlanReviewRepository meetingPlanReviewRepository,
+            MeetingPlanCommentReportRepository meetingPlanCommentReportRepository, MeetingPlanReviewImageRepository meetingPlanReviewImageRepository
     ) {
         this.meetingRepository = meetingRepository;
         this.userRepository = userRepository;
@@ -69,6 +79,9 @@ public class MeetingService {
         this.notificationRepository = notificationRepository;
         this.openWeatherService = openWeatherService;
         this.mapper = mapper;
+        this.meetingPlanReviewRepository = meetingPlanReviewRepository;
+        this.meetingPlanCommentReportRepository = meetingPlanCommentReportRepository;
+        this.meetingPlanReviewImageRepository = meetingPlanReviewImageRepository;
     }
 
     @Transactional
@@ -78,10 +91,10 @@ public class MeetingService {
 
 
         var meeting = Meeting.builder()
-                             .creator(user)
-                             .name(dto.name())
-                             .mainImageName(imageName)
-                             .build();
+                .creator(user)
+                .name(dto.name())
+                .mainImageName(imageName)
+                .build();
         meetingRepository.save(meeting);
 
         var meetingMember = new MeetingMember();
@@ -121,44 +134,44 @@ public class MeetingService {
         var user = userRepository.findById(creatorId).orElseThrow(() -> new BadRequestException("존재하지 않는 사용자"));
         var meeting = meetingRepository.findById(dto.getMeetingId()).orElseThrow(ResourceNotFoundException::new);
         meeting.getMembers().stream()
-               .filter(member -> member.getUser().getId().equals(user.getId()))
-               .findAny().orElseThrow(UnauthorizedException::new);
+                .filter(member -> member.getUser().getId().equals(user.getId()))
+                .findAny().orElseThrow(UnauthorizedException::new);
 
         var meetingPlan = MeetingPlan.builder()
-                                     .meeting(meeting)
-                                     .creator(user)
-                                     .name(dto.getName())
-                                     .startAt(dto.getStartAt())
-                                     .endAt(dto.getEndAt())
-                                     .address(dto.getAddress())
-                                     .detailAddress(dto.getDetailAddress())
-                                     .longitude(dto.getLongitude())
-                                     .latitude(dto.getLatitude())
-                                     .build();
+                .meeting(meeting)
+                .creator(user)
+                .name(dto.getName())
+                .startAt(dto.getStartAt())
+                .endAt(dto.getEndAt())
+                .address(dto.getAddress())
+                .detailAddress(dto.getDetailAddress())
+                .longitude(dto.getLongitude())
+                .latitude(dto.getLatitude())
+                .build();
 
         meetingPlanRepository.save(meetingPlan);
 
         MeetingPlanParticipant participant = MeetingPlanParticipant.builder()
-                                                                   .meetingPlan(meetingPlan)
-                                                                   .user(user)
-                                                                   .build();
+                .meetingPlan(meetingPlan)
+                .user(user)
+                .build();
 
         meetingPlanParticipantRepository.save(participant);
         var title = "모임 약속 추가 알림";
         var message = "%s 님이 새로운 약속을 추가했어요. 약속 내용을 확인해주세요!".formatted(user.getNickname());
 
         var notifications = meeting.getMembers().stream()
-                                   .filter(member -> !member.getUser().getId().equals(creatorId))
-                                   .map(member -> Notification.builder()
-                                                              .user(member.getUser())
-                                                              .deviceType(member.getUser().getDeviceType())
-                                                              .deviceToken(member.getUser().getDeviceToken())
-                                                              .message(message)
-                                                              .title(title)
-                                                              .actionData(null)
-                                                              .scheduledAt(LocalDateTime.now())
-                                                              .build())
-                                   .toList();
+                .filter(member -> !member.getUser().getId().equals(creatorId))
+                .map(member -> Notification.builder()
+                        .user(member.getUser())
+                        .deviceType(member.getUser().getDeviceType())
+                        .deviceToken(member.getUser().getDeviceToken())
+                        .message(message)
+                        .title(title)
+                        .actionData(null)
+                        .scheduledAt(LocalDateTime.now())
+                        .build())
+                .toList();
 
         notificationRepository.saveAll(notifications);
 
@@ -190,7 +203,7 @@ public class MeetingService {
             UpdateMeetingPlanDto dto
     ) throws ResourceNotFoundException, UnauthorizedException {
         var meetingPlan = meetingPlanRepository.findById(dto.getMeetingPlanId())
-                                               .orElseThrow(ResourceNotFoundException::new);
+                .orElseThrow(ResourceNotFoundException::new);
 
         if (!meetingPlan.getCreator().getId().equals(userId)) {
             throw new UnauthorizedException();
@@ -208,10 +221,10 @@ public class MeetingService {
                 meetingPlan.setEndAt(dto.getEndAt());
             } else {
                 LocalDateTime endAt = dto.getStartAt()
-                                         .withHour(11)
-                                         .withMinute(59)
-                                         .withSecond(59)
-                                         .withNano(0);
+                        .withHour(11)
+                        .withMinute(59)
+                        .withSecond(59)
+                        .withNano(0);
                 meetingPlan.setEndAt(endAt);
             }
         }
@@ -231,17 +244,17 @@ public class MeetingService {
         var message = "%s 님이 약속 내용을 수정했어요. 약속 내용을 확인해주세요!".formatted(meetingPlan.getCreator().getNickname());
 
         var notifications = meetingPlan.getParticipants().stream()
-                                       .filter(member -> !member.getUser().getId().equals(userId))
-                                       .map(member -> Notification.builder()
-                                                                  .user(member.getUser())
-                                                                  .deviceType(member.getUser().getDeviceType())
-                                                                  .deviceToken(member.getUser().getDeviceToken())
-                                                                  .message(message)
-                                                                  .title(title)
-                                                                  .actionData(null)
-                                                                  .scheduledAt(LocalDateTime.now())
-                                                                  .build())
-                                       .toList();
+                .filter(member -> !member.getUser().getId().equals(userId))
+                .map(member -> Notification.builder()
+                        .user(member.getUser())
+                        .deviceType(member.getUser().getDeviceType())
+                        .deviceToken(member.getUser().getDeviceToken())
+                        .message(message)
+                        .title(title)
+                        .actionData(null)
+                        .scheduledAt(LocalDateTime.now())
+                        .build())
+                .toList();
 
         notificationRepository.saveAll(notifications);
 
@@ -256,14 +269,14 @@ public class MeetingService {
         var meeting = meetingRepository.findById(meetingId).orElseThrow(ResourceNotFoundException::new);
 
         var expiredAt = Instant.ofEpochMilli(
-                                       System.currentTimeMillis() + expiresIn
-                               ).atZone(ZoneId.systemDefault())
-                               .toLocalDateTime();
+                        System.currentTimeMillis() + expiresIn
+                ).atZone(ZoneId.systemDefault())
+                .toLocalDateTime();
 
         var meetingInvite = MeetingInvite.builder()
-                                         .meeting(meeting)
-                                         .expiredAt(expiredAt)
-                                         .build();
+                .meeting(meeting)
+                .expiredAt(expiredAt)
+                .build();
 
         meetingInviteRepository.save(meetingInvite);
 
@@ -278,7 +291,7 @@ public class MeetingService {
         var meeting = meetingRepository.findById(dto.getMeetingId()).orElseThrow(ResourceNotFoundException::new);
         var user = userRepository.findById(userId).orElseThrow(() -> new BadRequestException("존재하지 않는 사용자입니다."));
         var meetingInvite = meetingInviteRepository.findByIdAndExpiredAtAfter(dto.getInviteId(), LocalDateTime.now())
-                                                   .orElseThrow(() -> new BadRequestException("존재하지 않는 초대 코드입니다."));
+                .orElseThrow(() -> new BadRequestException("존재하지 않는 초대 코드입니다."));
 
         if (meeting.getMembers().stream().anyMatch(m -> m.getUser().getId().equals(userId))) {
             throw new BadRequestException("이미 참여한 사용자입니다.");
@@ -293,17 +306,17 @@ public class MeetingService {
         var title = "%s님이 %s 모임에 참여했어요.".formatted(user.getNickname(), meeting.getName());
 
         var notifications = meeting.getMembers()
-                                   .stream()
-                                   .map(member -> Notification.builder()
-                                                              .user(member.getUser())
-                                                              .deviceType(member.getUser().getDeviceType())
-                                                              .deviceToken(member.getUser().getDeviceToken())
-                                                              .message(message)
-                                                              .title(title)
-                                                              .actionData(null)
-                                                              .scheduledAt(LocalDateTime.now())
-                                                              .build())
-                                   .toList();
+                .stream()
+                .map(member -> Notification.builder()
+                        .user(member.getUser())
+                        .deviceType(member.getUser().getDeviceType())
+                        .deviceToken(member.getUser().getDeviceToken())
+                        .message(message)
+                        .title(title)
+                        .actionData(null)
+                        .scheduledAt(LocalDateTime.now())
+                        .build())
+                .toList();
 
 
         var meetingMember = MeetingMember.builder().joinedMeeting(meeting).user(user).build();
@@ -323,13 +336,13 @@ public class MeetingService {
     @Transactional
     public GetMeetingDetailDto findByIdAndUserId(Long meetingId, Long userId) throws ResourceNotFoundException, UnauthorizedException {
         var meeting = meetingRepository.findById(meetingId).orElseThrow(ResourceNotFoundException::new);
-        if(meeting.getMembers().stream().noneMatch(member->member.getUser().getId().equals(userId))){
+        if (meeting.getMembers().stream().noneMatch(member -> member.getUser().getId().equals(userId))) {
             throw new UnauthorizedException("모임 참여자가 아닙니다.");
         }
         var latestActivePlan = meetingRepositorySupport.findLatestPlanByMeetingIdAndClosed(meeting.getId(), false);
         var latestClosedPlan = meetingRepositorySupport.findLatestPlanByMeetingIdAndClosed(meeting.getId(), true);
 
-        return mapper.toGetDetailDto(meeting,latestActivePlan,latestClosedPlan);
+        return mapper.toGetDetailDto(meeting, latestActivePlan, latestClosedPlan);
     }
 
     @Transactional
@@ -337,7 +350,7 @@ public class MeetingService {
         var current = LocalDateTime.now();
 
         var invite = meetingInviteRepository.findByIdAndExpiredAtAfter(id, current)
-                                            .orElseThrow(ResourceNotFoundException::new);
+                .orElseThrow(ResourceNotFoundException::new);
         return mapper.toGetDto(invite.getMeeting());
     }
 
@@ -369,9 +382,9 @@ public class MeetingService {
         var user = userRepository.findById(userId).orElseThrow(() -> new BadRequestException("존재하지 않는 사용자입니다."));
 
         var meetingPlanParticipant = MeetingPlanParticipant.builder()
-                                                           .meetingPlan(meetingPlan)
-                                                           .user(user)
-                                                           .build();
+                .meetingPlan(meetingPlan)
+                .user(user)
+                .build();
 
 
         meetingPlanParticipantRepository.save(meetingPlanParticipant);
@@ -379,17 +392,17 @@ public class MeetingService {
         var message = "%s 님이 약속에 참여하기로 했어요. 변경된 참여 인원을 확인해주세요!".formatted(user.getNickname());
 
         var notifications = meetingPlan.getParticipants().stream()
-                                       .filter(participant -> !participant.getUser().getId().equals(userId))
-                                       .map(member -> Notification.builder()
-                                                                  .user(member.getUser())
-                                                                  .deviceType(member.getUser().getDeviceType())
-                                                                  .deviceToken(member.getUser().getDeviceToken())
-                                                                  .message(message)
-                                                                  .title(title)
-                                                                  .actionData(null)
-                                                                  .scheduledAt(LocalDateTime.now())
-                                                                  .build())
-                                       .toList();
+                .filter(participant -> !participant.getUser().getId().equals(userId))
+                .map(member -> Notification.builder()
+                        .user(member.getUser())
+                        .deviceType(member.getUser().getDeviceType())
+                        .deviceToken(member.getUser().getDeviceToken())
+                        .message(message)
+                        .title(title)
+                        .actionData(null)
+                        .scheduledAt(LocalDateTime.now())
+                        .build())
+                .toList();
 
         notificationRepository.saveAll(notifications);
         entityManager.refresh(meetingPlan);
@@ -404,10 +417,10 @@ public class MeetingService {
         var meetingPlan = meetingPlanRepository.findById(planId).orElseThrow(ResourceNotFoundException::new);
 
         var joinedParticipant = meetingPlan.getParticipants()
-                                           .stream()
-                                           .filter(participant -> participant.getUser().getId().equals(userId))
-                                           .findAny()
-                                           .orElseThrow(() -> new BadRequestException("아직 참여하지 않은 사용자입니다."));
+                .stream()
+                .filter(participant -> participant.getUser().getId().equals(userId))
+                .findAny()
+                .orElseThrow(() -> new BadRequestException("아직 참여하지 않은 사용자입니다."));
 
         var user = userRepository.findById(userId).orElseThrow(() -> new BadRequestException("존재하지 않는 사용자입니다."));
 
@@ -419,17 +432,17 @@ public class MeetingService {
         var message = "%s 님이 참여하기로 한 약속을 취소했어요. 변경된 참여 인원을 확인해주세요".formatted(user.getNickname());
 
         var notifications = meetingPlan.getParticipants().stream()
-                                       .filter(participant -> !participant.getUser().getId().equals(userId))
-                                       .map(member -> Notification.builder()
-                                                                  .user(member.getUser())
-                                                                  .deviceType(member.getUser().getDeviceType())
-                                                                  .deviceToken(member.getUser().getDeviceToken())
-                                                                  .message(message)
-                                                                  .title(title)
-                                                                  .actionData(null)
-                                                                  .scheduledAt(LocalDateTime.now())
-                                                                  .build())
-                                       .toList();
+                .filter(participant -> !participant.getUser().getId().equals(userId))
+                .map(member -> Notification.builder()
+                        .user(member.getUser())
+                        .deviceType(member.getUser().getDeviceType())
+                        .deviceToken(member.getUser().getDeviceToken())
+                        .message(message)
+                        .title(title)
+                        .actionData(null)
+                        .scheduledAt(LocalDateTime.now())
+                        .build())
+                .toList();
 
         notificationRepository.saveAll(notifications);
         return mapper.toGetPlanDto(meetingPlan);
@@ -438,20 +451,20 @@ public class MeetingService {
     @Transactional
     public GetMeetingPlanCommentDto createPlanComment(Long userId, Long meetingPlanId, String content) throws ResourceNotFoundException, UnauthorizedException, BadRequestException {
         var isUserJoined = checkUserJoined(userId, meetingPlanId);
-        if(!isUserJoined){
+        if (!isUserJoined) {
             throw new UnauthorizedException();
         }
 
-        if(content.isBlank()){
+        if (content.isBlank()) {
             throw new BadRequestException("내용은 공백이 될 수 없습니다.");
         }
 
-        var user = userRepository.findById(userId).orElseThrow(()->new BadRequestException("존재하지 않는 사용자"));
+        var user = userRepository.findById(userId).orElseThrow(() -> new BadRequestException("존재하지 않는 사용자"));
         var meetingPlan = meetingPlanRepository.findById(meetingPlanId).orElseThrow(ResourceNotFoundException::new);
         var meetingPlanComment = MeetingPlanComment.builder()
                 .meetingPlan(meetingPlan)
                 .creator(user)
-                .content(content).build();
+                .contents(content).build();
         meetingPlanComment = meetingPlanCommentRepository.save(meetingPlanComment);
         return mapper.toGetPlanCommentDto(meetingPlanComment);
     }
@@ -459,7 +472,7 @@ public class MeetingService {
     @Transactional
     public GetMeetingPlanDto findPlanById(Long userId, Long meetingPlanId) throws ResourceNotFoundException, UnauthorizedException {
         var isUserJoined = checkUserJoined(userId, meetingPlanId);
-        if(!isUserJoined) throw new UnauthorizedException();
+        if (!isUserJoined) throw new UnauthorizedException();
 
         var meetingPlan = meetingPlanRepository.findById(meetingPlanId).orElseThrow(ResourceNotFoundException::new);
         return mapper.toGetPlanDto(meetingPlan);
@@ -469,18 +482,18 @@ public class MeetingService {
         var meetingPlan = meetingPlanRepository.findById(meetingPlanId).orElseThrow(ResourceNotFoundException::new);
 
         return meetingPlan.getParticipants()
-                   .stream()
-                   .anyMatch(participant -> participant.getUser().getId().equals(userId));
+                .stream()
+                .anyMatch(participant -> participant.getUser().getId().equals(userId));
     }
 
     @Transactional
     public GetMeetingPlanCommentDto updateMeetingPlanComment(Long userId, Long commentId, String content) throws ResourceNotFoundException, UnauthorizedException {
         var comment = meetingPlanCommentRepository.findById(commentId).orElseThrow(ResourceNotFoundException::new);
-        if(!comment.getCreator().getId().equals(userId)){
+        if (!comment.getCreator().getId().equals(userId)) {
             throw new UnauthorizedException();
         }
 
-        comment.setContent(content);
+        comment.setContents(content);
         meetingPlanCommentRepository.save(comment);
         return mapper.toGetPlanCommentDto(comment);
     }
@@ -488,7 +501,7 @@ public class MeetingService {
     @Transactional
     public void deleteMeetingPlanComment(Long userId, Long commentId) throws ResourceNotFoundException, UnauthorizedException {
         var comment = meetingPlanCommentRepository.findByIdAndDeletedAtIsNull(commentId).orElseThrow(ResourceNotFoundException::new);
-        if(!comment.getCreator().getId().equals(userId)){
+        if (!comment.getCreator().getId().equals(userId)) {
             throw new UnauthorizedException();
         }
 
@@ -499,10 +512,94 @@ public class MeetingService {
     @Transactional
     public List<GetMeetingPlanDto> findPlanByMeetingId(Long userId, Long meetingId) throws ResourceNotFoundException, UnauthorizedException {
         var meeting = meetingRepository.findById(meetingId).orElseThrow(ResourceNotFoundException::new);
-        if(meeting.getMembers().stream().noneMatch(member->member.getUser().getId().equals(userId))){
+        if (meeting.getMembers().stream().noneMatch(member -> member.getUser().getId().equals(userId))) {
             throw new UnauthorizedException();
         }
 
         return mapper.toGetPlanDtos(meeting.getPlans());
+    }
+
+    public static String getMeetingPlanReviewImageName(Long meetingPlanId) {
+        return "meeting-plan/%s".formatted(meetingPlanId);
+    }
+
+    @Transactional
+    public GetMeetingPlanReviewDto createMeetingPlanReview(CreateMeetingPlanReviewDto dto) throws ResourceNotFoundException, UnauthorizedException {
+        var participant = meetingPlanParticipantRepository.findByUserIdAndMeetingPlanId(dto.getCreatorId(), dto.getMeetingPlanId()).orElseThrow(UnauthorizedException::new);
+        var meetingPlan = meetingPlanRepository.findById(dto.getMeetingPlanId()).orElseThrow(ResourceNotFoundException::new);
+
+        var meetingPlanReview = MeetingPlanReview.builder()
+                .meetingPlan(meetingPlan)
+                .contents(dto.getContents())
+                .participant(participant)
+                .build();
+
+        var newMeetingPlanReview = meetingPlanReviewRepository.save(meetingPlanReview);
+
+        var reviewImages = Arrays.stream(dto.getImgFiles())
+                .map(img -> {
+                    try {
+                        return s3Service.uploadImage(null, "meeting-sideproject", getMeetingPlanReviewImageName(meetingPlan.getId()), img);
+                    } catch (IOException | BadRequestException e) {
+                        throw new RuntimeException(e);
+                    }
+                }).map(fileName -> MeetingPlanReviewImage.builder()
+                        .fileName(fileName)
+                        .review(newMeetingPlanReview)
+                        .meetingPlan(meetingPlan)
+                        .build())
+                .toList();
+
+        reviewImages = meetingPlanReviewImageRepository.saveAll(reviewImages);
+        entityManager.refresh(newMeetingPlanReview);
+
+        return mapper.toGetMeetingPlanReviewDto(meetingPlanReview);
+    }
+
+    @Transactional
+    public GetMeetingPlanReviewDto updateMeetingPlanReview(UpdateMeetingPlanReviewDto dto) throws UnauthorizedException, ResourceNotFoundException {
+        var participant = meetingPlanParticipantRepository.findByUserIdAndMeetingPlanId(dto.getCreatorId(), dto.getMeetingPlanId()).orElseThrow(UnauthorizedException::new);
+        var meetingPlanReview = meetingPlanReviewRepository.findByMeetingPlanIdAndParticipantId(dto.getMeetingPlanId(), participant.getId());
+        if (meetingPlanReview == null) throw new ResourceNotFoundException("작성한 리뷰가 없습니다.");
+
+        meetingPlanReview.setContents(dto.getContents());
+        meetingPlanReviewRepository.save(meetingPlanReview);
+        var meetingPlan = meetingPlanReview.getMeetingPlan();
+
+        meetingPlanReviewImageRepository.deleteAllById(dto.getDeletedImageIds());
+        var newImages = Arrays.stream(dto.getUpdatedImages()).map(img -> {
+                    try {
+                        return s3Service.uploadImage(null, "meeting-sideproject", getMeetingPlanReviewImageName(meetingPlan.getId()), img);
+                    } catch (IOException | BadRequestException e) {
+                        throw new RuntimeException(e);
+                    }
+                })
+                .map(img -> MeetingPlanReviewImage.builder().review(meetingPlanReview).meetingPlan(meetingPlan).fileName(img).build())
+                .toList();
+
+        newImages = meetingPlanReviewImageRepository.saveAll(newImages);
+
+        entityManager.refresh(meetingPlanReview);
+
+        return mapper.toGetMeetingPlanReviewDto(meetingPlanReview);
+    }
+
+    @Transactional
+    public GetMeetingPlanCommentReport createMeetingPlanCommentReport(CreateMeetingPlanCommentReport dto) throws ResourceNotFoundException, BadRequestException {
+        var meetingPlanComment = meetingPlanCommentRepository.findById(dto.getMeetingPlanCommentId()).orElseThrow(ResourceNotFoundException::new);
+        var reporter = userRepository.findById(dto.getReporterId()).orElseThrow(BadRequestException::new);
+        var originalContents = meetingPlanComment.getContents();
+        var commentCreator = meetingPlanComment.getCreator();
+        var report = MeetingPlanCommentReport.builder()
+                .comment(meetingPlanComment)
+                .reporter(reporter)
+                .originalContents(originalContents)
+                .reasons(dto.getReasons())
+                .subject(commentCreator)
+                .build();
+
+        report = meetingPlanCommentReportRepository.save(report);
+
+        return mapper.toGetMeetingPlanCommentReportDto(report);
     }
 }

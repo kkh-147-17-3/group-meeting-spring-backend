@@ -7,6 +7,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Getter
@@ -14,13 +15,10 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class MeetingPlanComment extends BaseTimeEntity {
+public class MeetingPlanReview extends BaseTimeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @ManyToOne
-    private User creator;
 
     @ManyToOne
     private MeetingPlanParticipant participant;
@@ -33,4 +31,7 @@ public class MeetingPlanComment extends BaseTimeEntity {
 
     @Column
     private LocalDateTime deletedAt;
+
+    @OneToMany(mappedBy = "review")
+    private List<MeetingPlanReviewImage> images;
 }

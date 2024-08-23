@@ -1,7 +1,9 @@
 package com.sideprj.groupmeeting.controller;
 
 import com.sideprj.groupmeeting.annotation.ApiLogging;
+import com.sideprj.groupmeeting.dto.meeting.CreateMeetingPlanCommentReport;
 import com.sideprj.groupmeeting.dto.DefaultUserDetails;
+import com.sideprj.groupmeeting.dto.meeting.UpdateMeetingPlanReviewDto;
 import com.sideprj.groupmeeting.dto.meeting.*;
 import com.sideprj.groupmeeting.exceptions.BadRequestException;
 import com.sideprj.groupmeeting.exceptions.ResourceNotFoundException;
@@ -193,5 +195,52 @@ public class MeetingController {
     ) throws ResourceNotFoundException, UnauthorizedException {
         meetingService.deleteMeetingPlanComment(userDetails.getId(), id);
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/plan/{id}/review")
+    public ResponseEntity<GetMeetingPlanReviewDto> createMeetingPlanReview(
+            @AuthenticationPrincipal DefaultUserDetails userDetails,
+            @PathVariable Long id,
+            @RequestParam String contents,
+            @RequestParam MultipartFile[] images
+    ) throws ResourceNotFoundException, UnauthorizedException {
+        var dto = new CreateMeetingPlanReviewDto();
+        dto.setCreatorId(userDetails.getId());
+        dto.setMeetingPlanId(id);
+        dto.setContents(contents);
+        dto.setImgFiles(images);
+
+        var result = meetingService.createMeetingPlanReview(dto);
+        return ResponseEntity.ok(result);
+    }
+
+    @PutMapping("/plan/{id}/review")
+    public ResponseEntity<GetMeetingPlanReviewDto> updateMeetingPlanReview(
+            @AuthenticationPrincipal DefaultUserDetails userDetails,
+            @PathVariable Long id,
+            @RequestParam String contents,
+            @RequestParam List<Long> deletedImageIds,
+            @RequestParam MultipartFile[] images
+    ) throws ResourceNotFoundException, UnauthorizedException {
+        var dto = new UpdateMeetingPlanReviewDto();
+        dto.setCreatorId(userDetails.getId());
+        dto.setMeetingPlanId(id);
+        dto.setUpdatedImages(images);
+        dto.setDeletedImageIds(deletedImageIds);
+
+        var result = meetingService.updateMeetingPlanReview(dto);
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/plan/comment/report/{id}")
+    public ResponseEntity<GetMeetingPlanCommentReport> createMeetingPlanCommentReport(
+            @AuthenticationPrincipal DefaultUserDetails userDetails,
+            @PathVariable Long id,
+            @RequestBody CreateMeetingPlanCommentReport dto
+    ) throws ResourceNotFoundException, BadRequestException {
+        dto.setReporterId(userDetails.getId());
+        dto.setMeetingPlanCommentId(id);
+        var result = meetingService.createMeetingPlanCommentReport(dto);
+        return ResponseEntity.ok(result);
     }
 }

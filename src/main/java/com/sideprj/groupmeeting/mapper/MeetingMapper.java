@@ -83,4 +83,9 @@ public interface MeetingMapper {
     @Mapping(source = "creator.nickname", target = "creatorNickname")
     @Mapping(source = "creator.profileImgUrl", target = "creatorProfileImgUrl")
     GetMeetingPlanCommentDto toGetPlanCommentDto(MeetingPlanComment comment);
+
+
+    GetMeetingPlanReviewDto toGetMeetingPlanReviewDto(MeetingPlanReview meetingPlanReview);
+
+    GetMeetingPlanCommentReport toGetMeetingPlanCommentReportDto(MeetingPlanCommentReport report);
 }

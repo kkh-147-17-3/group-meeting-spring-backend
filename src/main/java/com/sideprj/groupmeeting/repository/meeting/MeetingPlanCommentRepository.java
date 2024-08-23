@@ -1,6 +1,7 @@
 package com.sideprj.groupmeeting.repository.meeting;
 
 import com.sideprj.groupmeeting.entity.meeting.MeetingPlanComment;
+import com.sideprj.groupmeeting.entity.meeting.MeetingPlanReview;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
