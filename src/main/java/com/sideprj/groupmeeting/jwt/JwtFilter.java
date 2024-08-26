@@ -64,7 +64,7 @@ public class JwtFilter extends OncePerRequestFilter {
                 filterChain.doFilter(request, response);
                 return;
             } else {
-                throw new RuntimeException("Token is not yet expired");
+                jwtExceptionHandler(response, 40005);
             }
         }
 

@@ -54,7 +54,7 @@ public class AuthService {
     @Value("${apple.key.id}")
     private String appleKeyId;
 
-    private static final long ACCESS_TOKEN_EXPIRES_IN =  60000L * 60 * 1000;
+    private static final long ACCESS_TOKEN_EXPIRES_IN =  60L * 60 * 1000;
     private static final long REFRESH_TOKEN_EXPIRES_IN = 30L * 24 * 60 * 60 * 1000;
 
     private static final String APPLE_TOKEN_URL = "https://appleid.apple.com/auth/token";

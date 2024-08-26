@@ -15,6 +15,8 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -636,5 +638,11 @@ public class MeetingService {
 
         var reviews = meetingPlanReviewRepository.findByMeetingPlanId(meetingPlanId);
         return mapper.toGetMeetingPlanReviewDtos(reviews);
+    }
+
+    public List<GetMeetingPlanCommentReport> getAllReports(Integer page, Integer numInPage) {
+        Pageable pageable = PageRequest.of(page, numInPage);
+        var meetingPlan = meetingPlanCommentReportRepository.findAll(pageable).stream().toList();
+        return mapper.toGetMeetingPlanCommentReportDtos(meetingPlan);
     }
 }

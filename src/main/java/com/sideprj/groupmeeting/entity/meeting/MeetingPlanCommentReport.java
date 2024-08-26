@@ -29,7 +29,7 @@ public class MeetingPlanCommentReport extends BaseTimeEntity {
     private String originalContents;
 
     @ManyToOne
-    private User subject ;
+    private User subject;
 
     @Column
     private String reasons;

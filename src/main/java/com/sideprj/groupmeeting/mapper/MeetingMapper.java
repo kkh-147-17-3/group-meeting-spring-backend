@@ -90,8 +90,18 @@ public interface MeetingMapper {
     @Mapping(source = "participant.user.profileImgUrl", target = "creatorProfileImgUrl")
     GetMeetingPlanReviewDto toGetMeetingPlanReviewDto(MeetingPlanReview meetingPlanReview);
 
+    @Named("meetingPlanCommentReportToDto")
+    @Mapping(source = "reporter.id", target = "reporterId")
+    @Mapping(source = "reporter.nickname", target = "reporterNickname")
+    @Mapping(source = "reporter.profileImgUrl", target = "reporterProfileImgUrl")
+    @Mapping(source = "subject.id", target = "subjectId")
+    @Mapping(source = "subject.nickname", target = "subjectNickname")
+    @Mapping(source = "subject.profileImgUrl", target = "subjectProfileImgUrl")
     GetMeetingPlanCommentReport toGetMeetingPlanCommentReportDto(MeetingPlanCommentReport report);
 
     @IterableMapping(qualifiedByName = "meetingPlanReviewToDto")
     List<GetMeetingPlanReviewDto> toGetMeetingPlanReviewDtos(List<MeetingPlanReview> reviews);
+
+    @IterableMapping(qualifiedByName = "meetingPlanCommentReportToDto")
+    List<GetMeetingPlanCommentReport> toGetMeetingPlanCommentReportDtos(List<MeetingPlanCommentReport> meetingPlan);
 }
