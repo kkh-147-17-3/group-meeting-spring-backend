@@ -63,7 +63,7 @@ public class MeetingMapperTest {
                 .expiredAt(now.plusHours(10))
                 .build();
         meetingPlanComment = MeetingPlanComment.builder()
-                .content("test213")
+                .contents("test213")
                 .creator(user)
                 .meetingPlan(meetingPlan)
                 .build();

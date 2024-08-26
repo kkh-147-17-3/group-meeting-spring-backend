@@ -8,7 +8,7 @@ public record GetMeetingPlanCommentDto(
         String creatorNickname,
         String creatorProfileImgUrl,
 
-        String content,
+        String contents,
         LocalDateTime createdAt,
         LocalDateTime modifiedAt
 ) {

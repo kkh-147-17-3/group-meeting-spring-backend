@@ -10,7 +10,6 @@ import org.mapstruct.Named;
 import org.mapstruct.factory.Mappers;
 
 import java.util.List;
-import java.util.UUID;
 
 @Mapper(componentModel = "spring")
 public interface MeetingMapper {
@@ -85,7 +84,14 @@ public interface MeetingMapper {
     GetMeetingPlanCommentDto toGetPlanCommentDto(MeetingPlanComment comment);
 
 
+    @Named("meetingPlanReviewToDto")
+    @Mapping(source = "participant.user.id", target = "creatorId")
+    @Mapping(source = "participant.user.nickname", target = "creatorNickname")
+    @Mapping(source = "participant.user.profileImgUrl", target = "creatorProfileImgUrl")
     GetMeetingPlanReviewDto toGetMeetingPlanReviewDto(MeetingPlanReview meetingPlanReview);
 
     GetMeetingPlanCommentReport toGetMeetingPlanCommentReportDto(MeetingPlanCommentReport report);
+
+    @IterableMapping(qualifiedByName = "meetingPlanReviewToDto")
+    List<GetMeetingPlanReviewDto> toGetMeetingPlanReviewDtos(List<MeetingPlanReview> reviews);
 }

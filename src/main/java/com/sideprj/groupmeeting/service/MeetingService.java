@@ -262,7 +262,6 @@ public class MeetingService {
     }
 
     public GetMeetingInviteDto createInvite(
-            Long userId,
             Long meetingId
     ) throws ResourceNotFoundException {
         var expiresIn = 1000 * 60 * 24;
@@ -287,7 +286,7 @@ public class MeetingService {
     public GetMeetingMemberDto createMember(
             Long userId,
             @Valid JoinMeetingAsMemberDto dto
-    ) throws ResourceNotFoundException, BadRequestException, UnauthorizedException {
+    ) throws ResourceNotFoundException, BadRequestException {
         var meeting = meetingRepository.findById(dto.getMeetingId()).orElseThrow(ResourceNotFoundException::new);
         var user = userRepository.findById(userId).orElseThrow(() -> new BadRequestException("존재하지 않는 사용자입니다."));
         var meetingInvite = meetingInviteRepository.findByIdAndExpiredAtAfter(dto.getInviteId(), LocalDateTime.now())
@@ -524,9 +523,13 @@ public class MeetingService {
     }
 
     @Transactional
-    public GetMeetingPlanReviewDto createMeetingPlanReview(CreateMeetingPlanReviewDto dto) throws ResourceNotFoundException, UnauthorizedException {
+    public GetMeetingPlanReviewDto createMeetingPlanReview(CreateMeetingPlanReviewDto dto) throws ResourceNotFoundException, UnauthorizedException, BadRequestException {
         var participant = meetingPlanParticipantRepository.findByUserIdAndMeetingPlanId(dto.getCreatorId(), dto.getMeetingPlanId()).orElseThrow(UnauthorizedException::new);
         var meetingPlan = meetingPlanRepository.findById(dto.getMeetingPlanId()).orElseThrow(ResourceNotFoundException::new);
+
+        if(meetingPlanReviewRepository.findByMeetingPlanIdAndParticipantId(dto.getMeetingPlanId(), participant.getId()) != null){
+            throw new BadRequestException("이미 리뷰가 존재합니다.");
+        }
 
         var meetingPlanReview = MeetingPlanReview.builder()
                 .meetingPlan(meetingPlan)
@@ -557,28 +560,43 @@ public class MeetingService {
     }
 
     @Transactional
-    public GetMeetingPlanReviewDto updateMeetingPlanReview(UpdateMeetingPlanReviewDto dto) throws UnauthorizedException, ResourceNotFoundException {
+    public GetMeetingPlanReviewDto updateMeetingPlanReview(UpdateMeetingPlanReviewDto dto) throws UnauthorizedException, ResourceNotFoundException, BadRequestException {
         var participant = meetingPlanParticipantRepository.findByUserIdAndMeetingPlanId(dto.getCreatorId(), dto.getMeetingPlanId()).orElseThrow(UnauthorizedException::new);
         var meetingPlanReview = meetingPlanReviewRepository.findByMeetingPlanIdAndParticipantId(dto.getMeetingPlanId(), participant.getId());
         if (meetingPlanReview == null) throw new ResourceNotFoundException("작성한 리뷰가 없습니다.");
 
-        meetingPlanReview.setContents(dto.getContents());
-        meetingPlanReviewRepository.save(meetingPlanReview);
+        if(!dto.getContents().isEmpty()){
+            meetingPlanReview.setContents(dto.getContents());
+        }
+
         var meetingPlan = meetingPlanReview.getMeetingPlan();
 
-        meetingPlanReviewImageRepository.deleteAllById(dto.getDeletedImageIds());
-        var newImages = Arrays.stream(dto.getUpdatedImages()).map(img -> {
-                    try {
-                        return s3Service.uploadImage(null, "meeting-sideproject", getMeetingPlanReviewImageName(meetingPlan.getId()), img);
-                    } catch (IOException | BadRequestException e) {
-                        throw new RuntimeException(e);
-                    }
-                })
-                .map(img -> MeetingPlanReviewImage.builder().review(meetingPlanReview).meetingPlan(meetingPlan).fileName(img).build())
-                .toList();
+        if(dto.getDeletedImageIds() != null){
+            var deletedMeetingImages = meetingPlanReviewImageRepository.findAllById(dto.getDeletedImageIds());
+            if(
+                    deletedMeetingImages.stream()
+                    .noneMatch(image->image.getMeetingPlan().getId().equals(dto.getMeetingPlanId()))
+            ) {
+                throw new BadRequestException("삭제하려고 하는 이미지는 해당 리뷰에 존재하지 않습니다.");
+            }
+            meetingPlanReviewImageRepository.deleteAll(deletedMeetingImages);
+        }
 
-        newImages = meetingPlanReviewImageRepository.saveAll(newImages);
+        if(dto.getUpdatedImages() != null) {
+            var newImages = Arrays.stream(dto.getUpdatedImages()).map(img -> {
+                        try {
+                            return s3Service.uploadImage(null, "meeting-sideproject", getMeetingPlanReviewImageName(meetingPlan.getId()), img);
+                        } catch (IOException | BadRequestException e) {
+                            throw new RuntimeException(e);
+                        }
+                    })
+                    .map(img -> MeetingPlanReviewImage.builder().review(meetingPlanReview).meetingPlan(meetingPlan).fileName(img).build())
+                    .toList();
 
+            newImages = meetingPlanReviewImageRepository.saveAll(newImages);
+        }
+
+        meetingPlanReviewRepository.saveAndFlush(meetingPlanReview);
         entityManager.refresh(meetingPlanReview);
 
         return mapper.toGetMeetingPlanReviewDto(meetingPlanReview);
@@ -588,6 +606,12 @@ public class MeetingService {
     public GetMeetingPlanCommentReport createMeetingPlanCommentReport(CreateMeetingPlanCommentReport dto) throws ResourceNotFoundException, BadRequestException {
         var meetingPlanComment = meetingPlanCommentRepository.findById(dto.getMeetingPlanCommentId()).orElseThrow(ResourceNotFoundException::new);
         var reporter = userRepository.findById(dto.getReporterId()).orElseThrow(BadRequestException::new);
+
+        var meetingPlanCommentReport = meetingPlanCommentReportRepository.findByReporterIdAndCommentId(reporter.getId(), meetingPlanComment.getId());
+        if(meetingPlanCommentReport != null){
+            throw new BadRequestException("이미 신고내역이 존재합니다.");
+        }
+
         var originalContents = meetingPlanComment.getContents();
         var commentCreator = meetingPlanComment.getCreator();
         var report = MeetingPlanCommentReport.builder()
@@ -601,5 +625,16 @@ public class MeetingService {
         report = meetingPlanCommentReportRepository.save(report);
 
         return mapper.toGetMeetingPlanCommentReportDto(report);
+    }
+
+    @Transactional
+    public List<GetMeetingPlanReviewDto> getAllMeetingPlanReviewByMeetingPlanId(Long userId, Long meetingPlanId) throws UnauthorizedException, ResourceNotFoundException {
+        var meetingPlan = meetingPlanRepository.findById(meetingPlanId).orElseThrow(ResourceNotFoundException::new);
+        if(meetingPlan.getParticipants().stream().noneMatch(p->p.getUser().getId().equals(userId))) {
+            throw new UnauthorizedException();
+        }
+
+        var reviews = meetingPlanReviewRepository.findByMeetingPlanId(meetingPlanId);
+        return mapper.toGetMeetingPlanReviewDtos(reviews);
     }
 }

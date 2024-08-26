@@ -2,7 +2,6 @@ package com.sideprj.groupmeeting.entity.meeting;
 
 
 import com.sideprj.groupmeeting.entity.BaseTimeEntity;
-import com.sideprj.groupmeeting.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -32,6 +31,6 @@ public class MeetingPlanReview extends BaseTimeEntity {
     @Column
     private LocalDateTime deletedAt;
 
-    @OneToMany(mappedBy = "review")
+    @OneToMany(mappedBy = "review", fetch = FetchType.EAGER)
     private List<MeetingPlanReviewImage> images;
 }

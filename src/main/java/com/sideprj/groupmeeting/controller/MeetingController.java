@@ -78,7 +78,7 @@ public class MeetingController {
             @AuthenticationPrincipal DefaultUserDetails userDetails,
             @PathVariable Long id,
             @RequestBody JoinMeetingAsMemberDto dto
-    ) throws BadRequestException, ResourceNotFoundException, UnauthorizedException {
+    ) throws BadRequestException, ResourceNotFoundException {
         dto.setMeetingId(id);
         var invite = meetingService.createMember(userDetails.getId(), dto);
         return ResponseEntity.ok(invite);
@@ -86,11 +86,10 @@ public class MeetingController {
 
     @PostMapping("/{id}/invite")
     public ResponseEntity<GetMeetingInviteDto> createInvite(
-            @AuthenticationPrincipal DefaultUserDetails userDetails,
             @PathVariable Long id
     ) throws ResourceNotFoundException {
 
-        var invite = meetingService.createInvite(userDetails.getId(), id);
+        var invite = meetingService.createInvite(id);
         return ResponseEntity.ok(invite);
     }
 
@@ -173,7 +172,7 @@ public class MeetingController {
             @PathVariable Long id,
             @RequestBody CreateMeetingPlanCommentDto dto
     ) throws BadRequestException, ResourceNotFoundException, UnauthorizedException {
-        var result = meetingService.createPlanComment(userDetails.getId(), id, dto.content());
+        var result = meetingService.createPlanComment(userDetails.getId(), id, dto.contents());
         return ResponseEntity.ok(result);
     }
 
@@ -182,19 +181,28 @@ public class MeetingController {
             @AuthenticationPrincipal DefaultUserDetails userDetails,
             @PathVariable Long id,
             @RequestBody CreateMeetingPlanCommentDto dto
-    ) throws BadRequestException, ResourceNotFoundException, UnauthorizedException {
-        var result = meetingService.updateMeetingPlanComment(userDetails.getId(), id, dto.content());
+    ) throws ResourceNotFoundException, UnauthorizedException {
+        var result = meetingService.updateMeetingPlanComment(userDetails.getId(), id, dto.contents());
         return ResponseEntity.ok(result);
     }
 
     @DeleteMapping("/plan/comment/{id}")
     public ResponseEntity<Void> deleteMeetingPlanComment(
             @AuthenticationPrincipal DefaultUserDetails userDetails,
-            @PathVariable Long id,
-            @RequestBody CreateMeetingPlanCommentDto dto
+            @PathVariable Long id
     ) throws ResourceNotFoundException, UnauthorizedException {
         meetingService.deleteMeetingPlanComment(userDetails.getId(), id);
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/plan/{id}/review")
+    public ResponseEntity<List<GetMeetingPlanReviewDto>> getAllMeetingPlanReviews(
+            @AuthenticationPrincipal DefaultUserDetails userDetails,
+            @PathVariable Long id
+    ) throws ResourceNotFoundException, UnauthorizedException {
+
+        var result = meetingService.getAllMeetingPlanReviewByMeetingPlanId(userDetails.getId(), id);
+        return ResponseEntity.ok(result);
     }
 
     @PostMapping("/plan/{id}/review")
@@ -202,8 +210,8 @@ public class MeetingController {
             @AuthenticationPrincipal DefaultUserDetails userDetails,
             @PathVariable Long id,
             @RequestParam String contents,
-            @RequestParam MultipartFile[] images
-    ) throws ResourceNotFoundException, UnauthorizedException {
+            @RequestParam(required = false) MultipartFile[] images
+    ) throws ResourceNotFoundException, UnauthorizedException, BadRequestException {
         var dto = new CreateMeetingPlanReviewDto();
         dto.setCreatorId(userDetails.getId());
         dto.setMeetingPlanId(id);
@@ -214,16 +222,17 @@ public class MeetingController {
         return ResponseEntity.ok(result);
     }
 
-    @PutMapping("/plan/{id}/review")
-    public ResponseEntity<GetMeetingPlanReviewDto> updateMeetingPlanReview(
+    @PutMapping("/plan/{id}/review/me")
+    public ResponseEntity<GetMeetingPlanReviewDto> updateMyMeetingPlanReview(
             @AuthenticationPrincipal DefaultUserDetails userDetails,
             @PathVariable Long id,
-            @RequestParam String contents,
-            @RequestParam List<Long> deletedImageIds,
-            @RequestParam MultipartFile[] images
-    ) throws ResourceNotFoundException, UnauthorizedException {
+            @RequestParam(required = false) String contents,
+            @RequestParam(required = false) List<Long> deletedImageIds,
+            @RequestParam(required = false) MultipartFile[] images
+    ) throws ResourceNotFoundException, UnauthorizedException, BadRequestException {
         var dto = new UpdateMeetingPlanReviewDto();
         dto.setCreatorId(userDetails.getId());
+        dto.setContents(contents);
         dto.setMeetingPlanId(id);
         dto.setUpdatedImages(images);
         dto.setDeletedImageIds(deletedImageIds);
@@ -232,7 +241,7 @@ public class MeetingController {
         return ResponseEntity.ok(result);
     }
 
-    @PostMapping("/plan/comment/report/{id}")
+    @PostMapping("/plan/comment/{id}/report")
     public ResponseEntity<GetMeetingPlanCommentReport> createMeetingPlanCommentReport(
             @AuthenticationPrincipal DefaultUserDetails userDetails,
             @PathVariable Long id,
