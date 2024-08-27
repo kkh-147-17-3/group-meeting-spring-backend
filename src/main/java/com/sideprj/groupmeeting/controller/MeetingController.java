@@ -94,7 +94,7 @@ public class MeetingController {
     }
 
     @GetMapping("active")
-    public ResponseEntity<List<GetMeetingDto>> getMyMeeting(@AuthenticationPrincipal DefaultUserDetails userDetails) {
+    public ResponseEntity<List<GetMeetingListDto>> getMyMeeting(@AuthenticationPrincipal DefaultUserDetails userDetails) {
         var meetings = meetingService.getActiveMeetingsByUserId(userDetails.getId());
         return ResponseEntity.ok(meetings);
     }

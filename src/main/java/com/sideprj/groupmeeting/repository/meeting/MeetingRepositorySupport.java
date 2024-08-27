@@ -1,9 +1,11 @@
 package com.sideprj.groupmeeting.repository.meeting;
 
+import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import com.sideprj.groupmeeting.dto.meeting.GetMeetingListDto;
 import com.sideprj.groupmeeting.entity.meeting.*;
 import org.springframework.stereotype.Repository;
 
@@ -20,26 +22,44 @@ public class MeetingRepositorySupport {
         this.qf = queryFactory;
     }
 
-    public List<Meeting> findByDeletedFalseAndUserId(Long creatorId) {
-        var meeting = QMeeting.meeting;
-        var member = QMeetingMember.meetingMember;
-        return qf.selectFrom(meeting)
-                 .leftJoin(meeting.members)
-                 .fetchJoin()
-                 .where(
-                         meeting.deleted.isFalse()
-                                        .and(JPAExpressions
-                                                     .selectFrom(member)
-                                                     .where(member.joinedMeeting.id.eq(meeting.id)
-                                                                                   .and(member.user.id.eq(creatorId)))
-                                                     .exists()
-                                        )
+    public List<GetMeetingListDto> findByDeletedFalseAndUserId(Long userId) {
+        QMeeting m1 = QMeeting.meeting;
+        QMeetingMember meetingMember = QMeetingMember.meetingMember;
+        QMeetingPlan meetingPlan = QMeetingPlan.meetingPlan;
+        QMeetingPlanParticipant meetingPlanParticipant = QMeetingPlanParticipant.meetingPlanParticipant;
 
-                 )
-                 .orderBy(
-                         meeting.createdAt.desc()
-                 )
-                 .fetch();
+        var result = qf.select(Projections.constructor(
+                               GetMeetingListDto.class,
+                               m1.id,
+                               m1.name,
+                               m1.creator.id,
+                               m1.creator.nickname,
+                               m1.mainImageName,
+                               m1.members,
+                               m1.createdAt,
+                               JPAExpressions.select(meetingPlan.endAt.max())
+                                             .from(meetingPlan)
+                                             .join(meetingPlanParticipant)
+                                             .on(meetingPlan.id.eq(meetingPlanParticipant.meetingPlan.id)
+                                                               .and(meetingPlanParticipant.user.id.eq(userId)))
+                                             .where(meetingPlan.meeting.id.eq(m1.id))
+                       ))
+                       .from(m1)
+                       .join(meetingMember).on(m1.id.eq(meetingMember.joinedMeeting.id))
+                       .where(meetingMember.user.id.eq(userId)
+                                                   .and(m1.deleted.isFalse()))
+                       .orderBy(
+                               m1.createdAt.desc()
+                       )
+                       .fetch();
+
+        result.forEach(el -> el.setImageUrl(String.format(
+                "https://%s.s3.%s.amazonaws.com/%s",
+                "meeting-sideproject",
+                "ap-northeast-2",
+                el.getImageUrl()
+        )));
+        return result;
     }
 
     public Meeting findByIdOrInviteId(Long meetingId, UUID inviteId) {
@@ -162,4 +182,5 @@ public class MeetingRepositorySupport {
                 .orderBy(mp.startAt.desc())
                 .fetchFirst();
     }
+
 }

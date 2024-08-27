@@ -329,9 +329,8 @@ public class MeetingService {
     }
 
     @Transactional
-    public List<GetMeetingDto> getActiveMeetingsByUserId(Long userId) {
-        var meetings = meetingRepositorySupport.findByDeletedFalseAndUserId(userId);
-        return mapper.toGetDtos(meetings);
+    public List<GetMeetingListDto> getActiveMeetingsByUserId(Long userId) {
+        return meetingRepositorySupport.findByDeletedFalseAndUserId(userId);
     }
 
     @Transactional
