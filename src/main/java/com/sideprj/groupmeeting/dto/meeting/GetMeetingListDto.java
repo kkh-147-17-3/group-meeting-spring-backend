@@ -20,5 +20,5 @@ public class GetMeetingListDto{
     private String imageUrl;
     private List<GetMeetingMemberDto> members;
     private LocalDateTime createdAt;
-    private LocalDateTime lastMeetingPlan;
+    private LocalDateTime lastMeetingPlanStartAt;
 }
