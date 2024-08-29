@@ -1,7 +1,10 @@
 package com.sideprj.groupmeeting.entity;
 
+import com.sideprj.groupmeeting.dto.NotificationBody;
+import io.hypersistence.utils.hibernate.type.json.JsonType;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Type;
 
 import java.time.LocalDateTime;
 
@@ -41,8 +44,9 @@ public class Notification extends BaseTimeEntity {
     @Builder.Default
     private ActionType actionType = ActionType.DEFAULT;
 
-    @Column
-    private String actionData;
+    @Type(JsonType.class)
+    @Column(columnDefinition = "json")
+    private NotificationBody dataBody;
 
     @Column
     private LocalDateTime sentAt;
@@ -56,6 +60,6 @@ public class Notification extends BaseTimeEntity {
 
 
     public enum ActionType {
-        DEFAULT
+        DEFAULT, MEETING, MEETING_PLAN
     }
 }

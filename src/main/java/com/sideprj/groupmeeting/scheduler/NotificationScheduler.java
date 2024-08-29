@@ -1,12 +1,18 @@
 package com.sideprj.groupmeeting.scheduler;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sideprj.groupmeeting.dto.NotificationBody;
 import com.sideprj.groupmeeting.dto.NotificationRequest;
 import com.sideprj.groupmeeting.entity.Notification;
-import com.sideprj.groupmeeting.repository.*;
+import com.sideprj.groupmeeting.repository.NotificationRepository;
+import com.sideprj.groupmeeting.repository.NotificationRepositorySupport;
+import com.sideprj.groupmeeting.repository.UserRepository;
 import com.sideprj.groupmeeting.repository.meeting.MeetingPlanRepository;
 import com.sideprj.groupmeeting.repository.meeting.MeetingRepositorySupport;
 import com.sideprj.groupmeeting.service.NotificationService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import okhttp3.OkHttpClient;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -15,8 +21,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class NotificationScheduler {
@@ -29,22 +37,26 @@ public class NotificationScheduler {
     private final MeetingPlanRepository meetingPlanRepository;
 
     private final OkHttpClient okHttpClient;
+    private final ObjectMapper objectMapper;
 
     @Scheduled(fixedDelay = 60000)
     @Transactional
     public void sendNotification() throws Exception {
         var notifications = notificationRepositorySupport.findAllNeedToBeSentFromNow();
         var requests = notifications.stream()
-                .map(noti -> new NotificationRequest(
-                        noti.getId(),
-                        noti.getTitle(),
-                        noti.getMessage(),
-                        noti.getActionData(),
-                        noti.getActionType(),
-                        noti.getDeviceToken(),
-                        noti.getDeviceType(),
-                        noti.getUser().getBadgeCount() + 1
-                ))
+                .map(noti -> {
+                    noti.getDataBody().setNotificationId(noti.getId());
+                    return new NotificationRequest(
+                            noti.getId(),
+                            noti.getTitle(),
+                            noti.getMessage(),
+                            noti.getDataBody().getData(),
+                            noti.getActionType(),
+                            noti.getDeviceToken(),
+                            noti.getDeviceType(),
+                            noti.getUser().getBadgeCount() + 1
+                    );
+                })
                 .toList();
 
         var futures = notificationService.sendMultipleNotifications(requests);
@@ -77,19 +89,29 @@ public class NotificationScheduler {
         var meetings = meetingRepositorySupport.findWhereNoPlansFound();
         var title = "모임 약속을 추가해주세요.";
         var message = "모임을 만드신지 한 시간이 지났습니다. 약속을 추가해보시는 것은 어떨까요?";
+
         var notifications = meetings
                 .stream()
-                .map(meeting -> Notification.builder()
-                        .deviceToken(meeting.getCreator()
-                                .getDeviceToken())
-                        .deviceType(meeting.getCreator()
-                                .getDeviceType())
-                        .user(meeting.getCreator())
-                        .scheduledAt(meeting.getCreatedAt()
-                                .plusHours(1))
-                        .title(title)
-                        .message(message)
-                        .build()
+                .map(meeting -> {
+                            Map<String, Object> data = Map.of(
+                                    "meetingId", meeting.getId()
+                            );
+                            var notificationBody = new NotificationBody(Notification.ActionType.MEETING_PLAN, data);
+
+                            return Notification.builder()
+                                    .deviceToken(meeting.getCreator()
+                                            .getDeviceToken())
+                                    .actionType(Notification.ActionType.MEETING)
+                                    .deviceType(meeting.getCreator()
+                                            .getDeviceType())
+                                    .user(meeting.getCreator())
+                                    .scheduledAt(meeting.getCreatedAt()
+                                            .plusHours(1))
+                                    .title(title)
+                                    .message(message)
+                                    .dataBody(notificationBody)
+                                    .build();
+                        }
                 ).toList();
         notificationRepository.saveAll(notifications);
     }
@@ -107,14 +129,22 @@ public class NotificationScheduler {
             var participants = plan.getParticipants();
             var notificationsPerPlan = participants
                     .stream()
-                    .map((participant) -> Notification.builder()
-                            .user(participant.getUser())
-                            .deviceToken(participant.getUser().getDeviceToken())
-                            .deviceType(participant.getUser().getDeviceType())
-                            .scheduledAt(plan.getStartAt().minusDays(1))
-                            .title(title)
-                            .message(message.formatted(plan.getName()))
-                            .build())
+                    .map((participant) -> {
+                        Map<String, Object> data = Map.of(
+                                "meetingPlanId", participant.getMeetingPlan().getId()
+                        );
+                        var notificationBody = new NotificationBody(Notification.ActionType.MEETING_PLAN, data);
+                        return Notification.builder()
+                                .user(participant.getUser())
+                                .actionType(Notification.ActionType.MEETING_PLAN)
+                                .deviceToken(participant.getUser().getDeviceToken())
+                                .deviceType(participant.getUser().getDeviceType())
+                                .scheduledAt(plan.getStartAt().minusDays(1))
+                                .title(title)
+                                .dataBody(notificationBody)
+                                .message(message.formatted(plan.getName()))
+                                .build();
+                    })
                     .toList();
             notifications.addAll(notificationsPerPlan);
         });

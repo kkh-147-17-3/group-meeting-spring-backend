@@ -1,6 +1,7 @@
 package com.sideprj.groupmeeting.service;
 
 import com.sideprj.groupmeeting.dto.GeoLocation;
+import com.sideprj.groupmeeting.dto.NotificationBody;
 import com.sideprj.groupmeeting.dto.meeting.*;
 import com.sideprj.groupmeeting.entity.Notification;
 import com.sideprj.groupmeeting.entity.meeting.*;
@@ -24,10 +25,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.ZoneId;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 public class MeetingService {
@@ -161,16 +159,22 @@ public class MeetingService {
         meetingPlanParticipantRepository.save(participant);
         var title = "모임 약속 추가 알림";
         var message = "%s 님이 새로운 약속을 추가했어요. 약속 내용을 확인해주세요!".formatted(user.getNickname());
+        Map<String, Object> data = Map.of(
+                "meetingId", meeting.getId(),
+                "meetingPlanId", meetingPlan.getId()
+        );
+        var notificationBody = new NotificationBody(Notification.ActionType.MEETING_PLAN, data);
 
         var notifications = meeting.getMembers().stream()
                 .filter(member -> !member.getUser().getId().equals(creatorId))
                 .map(member -> Notification.builder()
                         .user(member.getUser())
+                        .actionType(Notification.ActionType.MEETING_PLAN)
                         .deviceType(member.getUser().getDeviceType())
                         .deviceToken(member.getUser().getDeviceToken())
                         .message(message)
                         .title(title)
-                        .actionData(null)
+                        .dataBody(notificationBody)
                         .scheduledAt(LocalDateTime.now())
                         .build())
                 .toList();
@@ -244,16 +248,21 @@ public class MeetingService {
 
         var title = "%s 모임 약속 수정 알림".formatted(meetingPlan.getMeeting().getName());
         var message = "%s 님이 약속 내용을 수정했어요. 약속 내용을 확인해주세요!".formatted(meetingPlan.getCreator().getNickname());
-
+        Map<String, Object> data = Map.of(
+                "meetingId", meetingPlan.getMeeting().getId(),
+                "meetingPlanId", meetingPlan.getId()
+        );
+        var body = new NotificationBody(Notification.ActionType.MEETING_PLAN, data);
         var notifications = meetingPlan.getParticipants().stream()
                 .filter(member -> !member.getUser().getId().equals(userId))
                 .map(member -> Notification.builder()
                         .user(member.getUser())
+                        .actionType(Notification.ActionType.MEETING_PLAN)
                         .deviceType(member.getUser().getDeviceType())
                         .deviceToken(member.getUser().getDeviceToken())
                         .message(message)
                         .title(title)
-                        .actionData(null)
+                        .dataBody(body)
                         .scheduledAt(LocalDateTime.now())
                         .build())
                 .toList();
@@ -306,15 +315,21 @@ public class MeetingService {
         var message = "모임 참여 알림";
         var title = "%s님이 %s 모임에 참여했어요.".formatted(user.getNickname(), meeting.getName());
 
+        Map<String, Object> data = Map.of(
+                "meetingId", meeting.getId()
+        );
+        var body = new NotificationBody(Notification.ActionType.MEETING, data);
+
         var notifications = meeting.getMembers()
                 .stream()
                 .map(member -> Notification.builder()
                         .user(member.getUser())
                         .deviceType(member.getUser().getDeviceType())
+                        .actionType(Notification.ActionType.MEETING)
                         .deviceToken(member.getUser().getDeviceToken())
                         .message(message)
                         .title(title)
-                        .actionData(null)
+                        .dataBody(body)
                         .scheduledAt(LocalDateTime.now())
                         .build())
                 .toList();
@@ -391,15 +406,21 @@ public class MeetingService {
         var title = "%s 모임 약속 참여 알림".formatted(meetingPlan.getMeeting().getName());
         var message = "%s 님이 약속에 참여하기로 했어요. 변경된 참여 인원을 확인해주세요!".formatted(user.getNickname());
 
+        Map<String, Object> data = Map.of(
+                "meetingId", meetingPlan.getId()
+        );
+        var notificationBody = new NotificationBody(Notification.ActionType.MEETING_PLAN, data);
+
         var notifications = meetingPlan.getParticipants().stream()
                 .filter(participant -> !participant.getUser().getId().equals(userId))
                 .map(member -> Notification.builder()
                         .user(member.getUser())
+                        .actionType(Notification.ActionType.MEETING_PLAN)
                         .deviceType(member.getUser().getDeviceType())
                         .deviceToken(member.getUser().getDeviceToken())
                         .message(message)
                         .title(title)
-                        .actionData(null)
+                        .dataBody(notificationBody)
                         .scheduledAt(LocalDateTime.now())
                         .build())
                 .toList();
@@ -431,15 +452,22 @@ public class MeetingService {
         var title = "%s 모임 약속 참여 취소 알림".formatted(meetingPlan.getMeeting().getName());
         var message = "%s 님이 참여하기로 한 약속을 취소했어요. 변경된 참여 인원을 확인해주세요".formatted(user.getNickname());
 
+        Map<String, Object> data = Map.of(
+                "meetingPlanId", meetingPlan.getId()
+        );
+        var notificationBody = new NotificationBody(Notification.ActionType.MEETING_PLAN, data);
+
+
         var notifications = meetingPlan.getParticipants().stream()
                 .filter(participant -> !participant.getUser().getId().equals(userId))
                 .map(member -> Notification.builder()
                         .user(member.getUser())
                         .deviceType(member.getUser().getDeviceType())
                         .deviceToken(member.getUser().getDeviceToken())
+                        .actionType(Notification.ActionType.MEETING_PLAN)
                         .message(message)
                         .title(title)
-                        .actionData(null)
+                        .dataBody(notificationBody)
                         .scheduledAt(LocalDateTime.now())
                         .build())
                 .toList();

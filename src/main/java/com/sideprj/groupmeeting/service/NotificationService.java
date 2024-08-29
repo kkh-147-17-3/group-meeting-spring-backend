@@ -100,27 +100,8 @@ public class NotificationService {
         CompletableFuture<NotificationRequestResult> future = new CompletableFuture<>();
 
         String url = APNS_URL + request.deviceToken();
-        TypeReference<Map<String, Object>> typeReference = new TypeReference<>() {
-        };
-        Map<String, Object> data = null;
-        try {
-            if (request.data() != null) {
-                data = mapper.readValue(request.data(), typeReference);
-            }
-        } catch (JsonProcessingException e) {
-            future.complete(new NotificationRequestResult(
-                    request.id(),
-                    false,
-                    request.title(),
-                    request.deviceToken(),
-                    request.deviceType(),
-                    request.message(),
-                    request.data(),
-                    e.getMessage()
-            ));
-            return future;
-        }
 
+        Map<String, Object> data = request.data();
 
         var requestData = buildPayload(request.title(), request.message(), request.badgeCount(), "default", data);
         RequestBody body = RequestBody.create(requestData, JSON);

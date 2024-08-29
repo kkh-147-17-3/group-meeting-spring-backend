@@ -108,10 +108,10 @@ public class MeetingMapperTest {
     @Test
     void test_ToGetMemberDto() {
         var dto = MeetingMapper.INSTANCE.toGetMemberDto(meetingMember);
-        assertEquals(dto.id(), meetingMember.getId());
-        assertEquals(dto.userId(), meetingMember.getUser().getId());
-        assertEquals(dto.userNickname(), meetingMember.getUser().getNickname());
-        assertEquals(dto.joinedAt(), meetingMember.getCreatedAt());
+        assertEquals(dto.getId(), meetingMember.getId());
+        assertEquals(dto.getUserId(), meetingMember.getUser().getId());
+        assertEquals(dto.getUserNickname(), meetingMember.getUser().getNickname());
+        assertEquals(dto.getJoinedAt(), meetingMember.getCreatedAt());
     }
 
     @Test
