@@ -32,7 +32,9 @@ public class MeetingController {
 
     @PostMapping()
     public ResponseEntity<GetMeetingDto> create(
-            @AuthenticationPrincipal DefaultUserDetails userDetails, @RequestParam MultipartFile image, @RequestParam String name
+            @AuthenticationPrincipal DefaultUserDetails userDetails,
+            @RequestParam(required = false) MultipartFile image,
+            @RequestParam String name
     ) throws BadRequestException, IOException {
         var dto = new CreateMeetingDto(name, image);
         var meetingInfo = meetingService.create(userDetails.getId(), dto);
@@ -43,7 +45,7 @@ public class MeetingController {
     public ResponseEntity<GetMeetingDto> update(
             @PathVariable Long id,
             @AuthenticationPrincipal DefaultUserDetails userDetails,
-            @RequestParam MultipartFile image,
+            @RequestParam(required = false) MultipartFile image,
             @RequestParam String name
     ) throws UnauthorizedException, IOException, ResourceNotFoundException, BadRequestException {
         var dto = new UpdateMeetingDto(id, name, image);

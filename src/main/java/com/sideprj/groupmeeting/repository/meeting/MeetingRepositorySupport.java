@@ -6,6 +6,7 @@ import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.sideprj.groupmeeting.dto.meeting.GetMeetingListDto;
+import com.sideprj.groupmeeting.dto.meeting.GetMeetingMemberDto;
 import com.sideprj.groupmeeting.entity.meeting.*;
 import org.springframework.stereotype.Repository;
 
@@ -24,34 +25,38 @@ public class MeetingRepositorySupport {
 
     public List<GetMeetingListDto> findByDeletedFalseAndUserId(Long userId) {
         QMeeting m1 = QMeeting.meeting;
-        QMeetingMember meetingMember = QMeetingMember.meetingMember;
+        QMeetingMember m2 = QMeetingMember.meetingMember;
         QMeetingPlan meetingPlan = QMeetingPlan.meetingPlan;
         QMeetingPlanParticipant meetingPlanParticipant = QMeetingPlanParticipant.meetingPlanParticipant;
 
         var result = qf.select(Projections.constructor(
-                               GetMeetingListDto.class,
-                               m1.id,
-                               m1.name,
-                               m1.creator.id,
-                               m1.creator.nickname,
-                               m1.mainImageName,
-                               m1.members,
-                               m1.createdAt,
-                               JPAExpressions.select(meetingPlan.endAt.max())
-                                             .from(meetingPlan)
-                                             .join(meetingPlanParticipant)
-                                             .on(meetingPlan.id.eq(meetingPlanParticipant.meetingPlan.id)
-                                                               .and(meetingPlanParticipant.user.id.eq(userId)))
-                                             .where(meetingPlan.meeting.id.eq(m1.id))
-                       ))
-                       .from(m1)
-                       .join(meetingMember).on(m1.id.eq(meetingMember.joinedMeeting.id))
-                       .where(meetingMember.user.id.eq(userId)
-                                                   .and(m1.deleted.isFalse()))
-                       .orderBy(
-                               m1.createdAt.desc()
-                       )
-                       .fetch();
+                        GetMeetingListDto.class,
+                        m1.id,
+                        m1.name,
+                        m1.creator.id,
+                        m1.creator.nickname,
+                        m1.mainImageName,
+                        Projections.list(Projections.constructor(
+                                        GetMeetingMemberDto.class,
+                                        m2.id, m2.user.id, m2.user.nickname, m2.createdAt
+                                )
+                        ),
+                        m1.createdAt,
+                        JPAExpressions.select(meetingPlan.startAt.max())
+                                .from(meetingPlan)
+                                .join(meetingPlanParticipant)
+                                .on(meetingPlan.id.eq(meetingPlanParticipant.meetingPlan.id)
+                                        .and(meetingPlanParticipant.user.id.eq(userId)))
+                                .where(meetingPlan.meeting.id.eq(m1.id))
+                ))
+                .from(m1)
+                .join(m2).on(m1.id.eq(m2.joinedMeeting.id))
+                .where(m2.user.id.eq(userId)
+                        .and(m1.deleted.isFalse()))
+                .orderBy(
+                        m1.createdAt.desc()
+                )
+                .fetch();
 
         result.forEach(el -> el.setImageUrl(String.format(
                 "https://%s.s3.%s.amazonaws.com/%s",
@@ -77,14 +82,14 @@ public class MeetingRepositorySupport {
                     : whereCondition.and(meetingInvite.id.eq(inviteId));
         }
         return qf.selectFrom(meeting)
-                 .join(meeting.members)
-                 .fetchJoin()
-                 .innerJoin(meeting.invites, meetingInvite)
-                 .where(whereCondition)
-                 .orderBy(
-                         meeting.createdAt.desc()
-                 )
-                 .fetchOne();
+                .join(meeting.members)
+                .fetchJoin()
+                .innerJoin(meeting.invites, meetingInvite)
+                .where(whereCondition)
+                .orderBy(
+                        meeting.createdAt.desc()
+                )
+                .fetchOne();
     }
 
     public List<MeetingPlan> findPlansByParticipantUserId(
@@ -113,25 +118,25 @@ public class MeetingRepositorySupport {
 
 
         return qf.selectFrom(meetingPlan)
-                 .innerJoin(meetingPlan.participants, meetingPlanParticipant)
-                 .fetchJoin()
-                 .where(meetingPlan.id
-                                .in(qf.select(meetingPlan.id)
-                                      .from(meetingPlan)
-                                      .innerJoin(
-                                              meetingPlan.participants,
-                                              meetingPlanParticipant
-                                      )
-                                      .where(meetingPlanParticipant.user.id.eq(userId))
-                                      .fetch()
+                .innerJoin(meetingPlan.participants, meetingPlanParticipant)
+                .fetchJoin()
+                .where(meetingPlan.id
+                        .in(qf.select(meetingPlan.id)
+                                .from(meetingPlan)
+                                .innerJoin(
+                                        meetingPlan.participants,
+                                        meetingPlanParticipant
                                 )
-                                .and(activeFilter)
-                                .and(yearMonthFilter)
-                 )
-                 .orderBy(meetingPlan.startAt.asc())
-                 .limit(numInPage)
-                 .offset(offset)
-                 .fetch();
+                                .where(meetingPlanParticipant.user.id.eq(userId))
+                                .fetch()
+                        )
+                        .and(activeFilter)
+                        .and(yearMonthFilter)
+                )
+                .orderBy(meetingPlan.startAt.asc())
+                .limit(numInPage)
+                .offset(offset)
+                .fetch();
     }
 
     public List<Meeting> findWhereNoPlansFound() {
@@ -144,11 +149,11 @@ public class MeetingRepositorySupport {
         return qf
                 .selectFrom(meeting)
                 .where(JPAExpressions
-                               .selectOne()
-                               .from(meetingPlan)
-                               .where(meetingPlan.meeting.id.eq(meeting.id))
-                               .notExists()
-                               .and(meeting.createdAt.between(startAt, endAt)))
+                        .selectOne()
+                        .from(meetingPlan)
+                        .where(meetingPlan.meeting.id.eq(meeting.id))
+                        .notExists()
+                        .and(meeting.createdAt.between(startAt, endAt)))
                 .fetch();
     }
 
@@ -158,8 +163,8 @@ public class MeetingRepositorySupport {
         return qf
                 .selectFrom(mp)
                 .where(mp.startAt.before(now.plusDays(5))
-                                 .and(mp.weatherUpdatedAt.isNull()
-                                                         .or(mp.weatherUpdatedAt.before(now.minusDays(1))))
+                        .and(mp.weatherUpdatedAt.isNull()
+                                .or(mp.weatherUpdatedAt.before(now.minusDays(1))))
                 )
                 .orderBy(
                         new CaseBuilder()

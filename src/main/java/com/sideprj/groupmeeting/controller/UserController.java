@@ -40,8 +40,8 @@ public class UserController {
     @PatchMapping("/me")
     public ResponseEntity<GetUserDto> updateMyInfo(
             @AuthenticationPrincipal DefaultUserDetails userDetails,
-            @RequestParam String nickname,
-            @RequestParam MultipartFile profileImg
+            @RequestParam(required = false) String nickname,
+            @RequestParam(required = false) MultipartFile profileImg
     ) throws IOException, BadRequestException {
         var dto = new UpdateUserDto(profileImg, nickname);
         var updatedUserInfo = userService.update(userDetails.getId(), dto);
